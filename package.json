@@ -1,0 +1,42 @@
+{
+  "name": "template-of-templates",
+  "version": "0.0.1",
+  "description": "Nestable JSON Transformation Template",
+  "main": "index.js",
+  "scripts": {
+    "clean": "rm -rf node_modules; rm -rf ./lib; rm -rf ./dist",
+    "test": "npm run eslint && jest ./src --verbose",
+    "test-watch": "npm run eslint && jest ./src --verbose --watch",
+    "build": "babel --copy-files --out-dir lib --ignore *.spec.js src",
+    "eslint": "./node_modules/.bin/eslint src --quiet"
+  },
+  "dependencies": {
+    "babel-plugin-transform-builtin-extend": "^1.1.2",
+    "babel-runtime": "~6.23.0",
+    "jsonpath": "^0.2.12",
+    "moment": "^2.18.1",
+    "ramda": "^0.24.1",
+    "traverse": "^0.6.6"
+  },
+  "devDependencies": {
+    "babel-cli": "~6.24.0",
+    "babel-eslint": "^7.2.1",
+    "babel-plugin-transform-async-generator-functions": "^6.24.1",
+    "babel-plugin-transform-object-rest-spread": "~6.23.0",
+    "babel-plugin-transform-runtime": "~6.23.0",
+    "babel-preset-env": "~1.2.2",
+    "eslint": "~3.18.0",
+    "jest": "~19.0.2"
+  },
+  "keywords": [
+    "JSON",
+    "template",
+    "transform",
+    "path",
+    "jsonpath",
+    "recursive",
+    "nested"
+  ],
+  "author": "Shaady Dawood <shaadydawood@gmail.com> (http://github.com/sdawood/)",
+  "license": "MIT"
+}
