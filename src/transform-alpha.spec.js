@@ -19,7 +19,10 @@ const original = Object.freeze({
     tags: {
         hot: {author: 'anonymousUser1', timestamp: '2016MMDDHHmmssSSS'},
         seasonal: {author: 'anonymousUser2', timestamp: '2017MMDDHHmmssSSS'},
-        personalTransportation: {author: 'memberUser3', timestamp: '2015MMDDHHmmssSSS'}
+        personalTransportation: {author: 'memberUser3', timestamp: '2015MMDDHHmmssSSS'},
+        'tag-name-with-dash': {author: 'memberUser4', timestamp: '2015MMDDHHmmssSSS'},
+        'tag name with spaces': {author: 'memberUser4', timestamp: '2015MMDDHHmmssSSS'},
+        'tag.name.with.dots': {author: 'memberUser4', timestamp: '2015MMDDHHmmssSSS'},
     },
     pictures: [
         {
@@ -39,12 +42,14 @@ const original = Object.freeze({
         fiveStar: [
             {
                 author: 'user1@domain1.com',
+                'first.name': 'user1',
                 comment: "Excellent! Can't recommend it highly enough! Buy it!",
                 score: 5,
                 viewAs: ['*', '*', '*', '*', '*']
             },
             {
                 author: 'user2@domain2.com',
+                'first.name': 'user2',
                 comment: 'Do yourself a favor and buy this.',
                 score: 5,
                 viewAs: ['*', '*', '*', '*', '*']
@@ -53,6 +58,7 @@ const original = Object.freeze({
         oneStar: [
             {
                 author: 'user3@domain3.com',
+                'first.name': 'user3',
                 comment: 'Terrible product! Do no buy this.',
                 score: 1,
                 viewAs: ['*', '-', '-', '-', '-']
@@ -60,29 +66,35 @@ const original = Object.freeze({
         ]
     },
     comment: 'This product sells out quickly during the summer',
-    'Safety.Warning': 'Always wear a helmet' // attribute name with `.`
+    'Safety.Warning.On.Root': 'Always wear a helmet' // attribute name with `.`
 });
 
 describe('transform', () => {
     describe.only('simple interpolation', () => {
         const template = {
-            name: '{{title}}',
+            name: '{{title}} [{{description}}] http://items/{{title}}',
             reviews: {
-                high: '{{productReview.fiveStar[0].comment}}', // <- this is an arbitrary javascript property access expression, evaluated as `new Function('data', 'return data.' + ref + ';')(data)`;
-                low: '{{productReview.oneStar[0].comment}}',
+                eula: 'read and agree and let us get on with it',
+                high: '{{productReview.fiveStar.0.comment}}', // <- this is an arbitrary javascript property access expression, evaluated as `new Function('data', 'return data.' + ref + ';')(data)`;
+                low: '{{productReview.oneStar.0.comment}}',
                 disclaimer: 'Ad: {{comment}}'
             },
-            safety: '{{Safety.Warning}}'
+            safety: '{{"Safety.Warning.On.Root"}}',
+            topRaters: '{{productReview.fiveStar.0."first.name"}} - {{productReview.fiveStar.1."first.name"}} - {{productReview.oneStar.0."first.name"}}',
+            topTaggers: '{{tags."tag-name-with-dash".author}} - {{tags."tag name with spaces".author}} - {{tags."tag.name.with.dots".author}}'
         };
 
         const expectedResult = {
-            name: original.title,
+            name: `${original.title} [${original.description}] http://items/${original.title}`,
             reviews: {
+                eula: 'read and agree and let us get on with it',
                 high: original.productReview.fiveStar[0].comment,
                 low: original.productReview.oneStar[0].comment,
                 disclaimer: `Ad: ${original.comment}`
             },
-            safety: original['Safety.Warning']
+            safety: original['Safety.Warning.On.Root'],
+            topRaters: 'user1 - user2 - user3',
+            topTaggers: 'memberUser4 - memberUser4 - memberUser4'
         };
 
         let result;
@@ -273,7 +285,7 @@ describe('transform', () => {
                 low: '{{productReview.oneStar[0].comment}}',
                 disclaimer: 'Ad: {{comment}}'
             },
-            safety: `=> either(Safety.Warning, "${defaultSafetyWarning}")` // <- TODO: template string doesn't work without the double quotes, the engine handles it as a path otherwise @line:164!!!
+            safety: `=> either(Safety.Warning.On.Root, "${defaultSafetyWarning}")` // <- TODO: template string doesn't work without the double quotes, the engine handles it as a path otherwise @line:164!!!
         };
 
         const expectedResult = {

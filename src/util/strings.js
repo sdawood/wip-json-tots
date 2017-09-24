@@ -43,9 +43,9 @@ function _tokenize(regex, str, tokenNames = [], $n = true) {
 function* tokenGenerator(regex, str) {
     regex = new RegExp(regex); // normalize string and regex args, also refresh exhausted regex
     const multi = regex.flags.includes('g');
-    let matches;
+    let matches = regex.exec(str);;
+    if (matches === null) return;
     do {
-        matches = regex.exec(str)
         const match = matches.shift();
         yield* matches.map(token => ({match, token}));
     } while (multi && (matches = regex.exec(str)) !== null)

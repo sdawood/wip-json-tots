@@ -75,7 +75,7 @@ const isBoolean = o => objectTag(o) === '[object Boolean]';
 const isNumber = o => objectTag(o) === '[object Number]';
 const isString = o => objectTag(o) === '[object String]';
 const isArray = Array.isArray || (o => objectTag(o) === '[object Array]');
-const isObject = o => o.constructor === Object;
+const isObject = o => o && o.constructor === Object;
 
 const isEmptyValue = x => isNil(x) || !isNumber(x) && !isFunction(x) && Object.keys(x).length === 0; // works for null, undefined, '', [], {}
 // const isObject = o => o && (typeof o === 'object' || !isFunction(o));
@@ -330,6 +330,10 @@ const mapcat = fn => compose(mapTransformer(fn), cat);
 
 const mapcatAsync = fn => composeAsync(mapAsyncTransformer(fn), catAsync);
 
+// update is a transducer fn
+// update:: fn -> acc -> x -> acc
+const update = (reducingFn, {factory = identity} = {}) => (acc, [key, value]) => factory({...acc, [key]: value});
+const mapUpdate = (fn, iterable) => reduce(compose(mapTransformer(fn), update)(/*reducingFn*/), () => ({}), iterable);
 
 /**
  * Implements map transform for iterables, stub for ramda.map, should be removed when ramda is introduced.
@@ -372,6 +376,8 @@ module.exports = {
     SymbolIterator,
     SymbolAsyncIterator,
     isEmptyValue,
+    isString,
+    isNumber,
     isObject,
     isArray,
     isFunction,
@@ -401,6 +407,8 @@ module.exports = {
     concatAsync: catAsync,
     mapcatAsync,
     concatMapAsync: mapcatAsync,
+    update,
+    mapUpdate,
     reduce,
     reduceAsync,
     mapTransformer,
