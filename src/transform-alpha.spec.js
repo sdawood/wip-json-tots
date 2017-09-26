@@ -70,54 +70,6 @@ const original = Object.freeze({
 });
 
 describe('transform', () => {
-    describe('deref-js:: simple interpolation', () => {
-        const template = {
-            name: '{{title}} [{{description}}] http://items/{{title}}',
-            reviews: {
-                eula: 'read and agree and let us get on with it',
-                high: '{{productReview.fiveStar[0].comment}}', // <- this is an arbitrary javascript property access expression, evaluated as `new Function('data', 'return data.' + ref + ';')(data)`;
-                low: '{{productReview.oneStar[0].comment}}',
-                disclaimer: 'Ad: {{comment}}'
-            },
-            safety: '{{["Safety.Warning.On.Root"]}}',
-            topRaters: '{{productReview.fiveStar[0]["first.name"]}} - {{productReview.fiveStar[1]["first.name"]}} - {{productReview.oneStar[0]["first.name"]}}',
-            topTaggers: '{{tags["tag-name-with-dash"].author}} - {{tags["tag name with spaces"].author}} - {{tags["tag.name.with.dots"].author}}'
-        };
-
-        const expectedResult = {
-            name: `${original.title} [${original.description}] http://items/${original.title}`,
-            reviews: {
-                eula: 'read and agree and let us get on with it',
-                high: original.productReview.fiveStar[0].comment,
-                low: original.productReview.oneStar[0].comment,
-                disclaimer: `Ad: ${original.comment}`
-            },
-            safety: original['Safety.Warning.On.Root'],
-            topRaters: 'user1 - user2 - user3',
-            topTaggers: 'memberUser4 - memberUser4 - memberUser4'
-        };
-
-        let result;
-        let templateClone = clone(template);
-        const documentClone = clone(original);
-
-        beforeEach(() => {
-            result = transform(templateClone, documentClone);
-        });
-
-        it('handles 1..* levels of nesting, and special characters in attribute names', () => {
-            expect(result).toEqual(expectedResult);
-        });
-
-        it('does not mutate the template', () => {
-            expect(templateClone).toEqual(template);
-        });
-
-        it('does not mutate the source', () => {
-            expect(documentClone).toEqual(original);
-        });
-    });
-
     describe('deref-jsonpath:: simple interpolation', () => {
         const template = {
             name: '{{title}} [{{description}}] http://items/{{title}}',
@@ -131,7 +83,7 @@ describe('transform', () => {
             topRaters: '{{productReview.fiveStar[0]["first.name"]}} - {{productReview.fiveStar[1]["first.name"]}} - {{productReview.oneStar[0]["first.name"]}}',
             topTaggers: '{{tags["tag-name-with-dash"].author}} - {{tags["tag name with spaces"].author}} - {{tags["tag.name.with.dots"].author}}',
             scores: '{*{..score}}', // <- * means get one or more search results. The value is substituted as is unless the place holder is a part of a bigger string, in that case it is replaced into the string template
-            oneScore: '{{..score}}' // <- * means get one or more search results. The value is substituted as is unless the place holder is a part of a bigger string, in that case it is replaced into the string template
+            oneScore: '{{..score}}' // <- * means get exactly one search results. The value is substituted as is unless the place holder is a part of a bigger string, in that case it is replaced into the string template
         };
 
         const expectedResult = {
@@ -173,18 +125,18 @@ describe('transform', () => {
     describe.only('simple template array mapping interpolation', () => {
         const template = {
             name: '{{title}}',
-            // related: ['{...{relatedItems}}', 'see also: {{}}'], // <- this ends up calling new Function('data', 'return data.' + 'valueOf()' + ';') for each. TODO: can't do array element reference, using => identity(??) of what?, options: use @ to reference the current element in the for-each behavior?
+            // related: ['{..{relatedItems}}', 'see also: {{}}'], // <- this ends up calling new Function('data', 'return data.' + 'valueOf()' + ';') for each. TODO: can't do array element reference, using => identity(??) of what?, options: use @ to reference the current element in the for-each behavior?
             reviews: {
-                high: ['prelude', {keyBefore: 'literal value before'}, ['a', 'b', 'c'], '{{productReview.fiveStar.length}}', '{...{productReview.fiveStar}}', {
+                high: ['prelude', {keyBefore: 'literal value before'}, ['a', 'b', 'c'], '{{productReview.fiveStar.length}}', '{..{productReview.fiveStar}}', {
                     praise: '{*{["comment","author"]}}'
                 }, {keyAfter: 'literal value after'}
                 ],
-                low: ['{...{productReview.oneStar}}', {
+                low: ['{..{productReview.oneStar}}', {
                     criticism: '{{comment}}'
                 }],
                 disclaimer: 'Ad: {{comment}}'
             },
-            views: ['{...{pictures}}', '[{{view}}]({{images.length}})']
+            views: ['{..{pictures}}', '[{{view}}]({{images.length}})']
         };
 
         const expectedResult = {
@@ -591,25 +543,24 @@ describe('transform', () => {
         });
     });
 
-    describe('nested template object mapping interpolation', () => {
+    describe.only('nested template object mapping interpolation', () => {
         const template = {
             name: '{{title}}',
             reviews: {
-                high: ['{{productReview.fiveStar}}', {
+                high: ['{..{productReview.fiveStar}}', {
                     praise: '{{comment}}'
                 }],
-                low: ['{{productReview.oneStar}}', {
+                low: ['{..{productReview.oneStar}}', {
                     criticism: '{{comment}}'
                 }],
                 disclaimer: 'Ad: {{comment}}',
                 tagsByYear: [
-                    '{{tags}}', // <- TODO: enumerate objects and iterables alike
+                    '{..{tags}}',
                     [
-                        '{{timestamp}}',
-                        // pipe into identity() implicitly
+                        '{{timestamp}}'
                     ]
                     // <- TODO: wouldn't it be useful to apply a sort or aggregate here for the result iterable?
-                    // <- TODO if we want a list of timestamps, we would have to next for-each templates and end up with [[ts1], [ts2]], pipe to flatten?
+                    // <- TODO if we want a list of timestamps, we would have for-each templates and end up with [[ts1], [ts2]], pipe to flatten?
                 ]
             }
         };

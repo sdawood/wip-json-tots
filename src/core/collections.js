@@ -7,9 +7,11 @@ const jp = require('jsonpath');
  * debugging decorator that logs function name when the decorated function is invoked
  * @param fn: can be a function defined with the `function` keyword, or `let foo = () => {}; foo = which(foo);`
  */
-const which = fn => (...args) => {
-    console.log(`${fn.name}(${args})`);
-    return fn(...args);
+const which = (fn, {input = true, output = true, stringify = true} = {}) => (...args) => {
+    console.log(`${fn.name || 'function'}(${input ? args : '...'})`);
+    const result = fn(...args);
+    if (output) console.log(`${fn.name || 'function'} :: (${input ? args : '...'}) -> ${stringify ? JSON.stringify(result, null, 0) : result}`);
+    return result;
 };
 
 /**
@@ -312,6 +314,8 @@ function reduce(reducingFn, initFn, enumerable) {
     return result;
 }
 
+const flatten = enumerable => reduce(cat(), () => [], enumerable);
+
 /**
  * Implements reduce for async-generators instead of iterables or reduce for an async reducingFn
  *
@@ -443,6 +447,7 @@ module.exports = {
     skip,
     partition,
     partitionBy,
+    flatten,
     sticky,
     memorizeWhen: sticky,
     accessor,
