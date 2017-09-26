@@ -222,6 +222,51 @@ function partition(collection, predicate, matchesKey = 'matches', rejectsKey = '
     return result;
 }
 
+function* partitionBy(fn, data) {
+    const NONE = {};
+    const iter = iterator(data);
+    let buffer = [];
+    let memory = NONE;
+    let lastResult;
+    let newResult;
+    for (const value of iter) {
+        lastResult = memory;
+        newResult = fn(value);
+        memory = newResult;
+        if ((lastResult === NONE) || (lastResult === newResult)) {
+            buffer.push(value);
+        } else {
+            yield iterator(buffer, {metadata: always(lastResult)});
+            buffer = [];
+            buffer.push(value);
+        }
+    }
+    if (buffer.length > 0) {
+        yield iterator(buffer, {metadata: always(newResult)});
+    }
+}
+
+const sticky = (n, {when = identity, recharge = true} = {}, fn) => {
+    let count = 0;
+    let result;
+    let memory;
+    return (...args) => {
+        if (!count) { // not repeating
+            result = fn(...args);
+            memory = result;
+            count = when(result) === memory ? n - 1 : count;
+        } else { // repeating
+            if (recharge) {
+                result = fn(...args);
+                count = when(result) === result ? n : count; // recharge sticky counter with every new positive hit
+            }
+            result = memory;
+            count--;
+        }
+        return result;
+    }
+};
+
 /**
  * This is lenses rude cousin, it mutates the path in the document you give it using x.value property get/set
  * @param  document -> path -> accessor::get|set|apply|map
@@ -396,6 +441,9 @@ module.exports = {
     take,
     skip,
     partition,
+    partitionBy,
+    sticky,
+    memorizeWhen: sticky,
     accessor,
     append,
     appendAsync,

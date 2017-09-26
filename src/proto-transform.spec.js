@@ -102,10 +102,11 @@ describe('transform', () => {
         });
     });
 
-    describe('simple template array mapping interpolation', () => {
+    describe.only('simple template array mapping interpolation', () => {
         const template = {
             name: '{{title}}',
             related: ['{{relatedItems}}', 'see also: {{valueOf()}}'], // <- this ends up calling new Function('data', 'return data.' + 'valueOf()' + ';') for each. TODO: can't do array element reference, using => identity(??) of what?, options: use @ to reference the current element in the for-each behavior?
+            whatDoesThisDo: ['{{relatedItems}}',],
             reviews: {
                 high: ['{{productReview.fiveStar}}', {
                     praise: '{{comment}}'
