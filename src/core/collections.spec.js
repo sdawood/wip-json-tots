@@ -214,36 +214,36 @@ describe('sync', () => {
         const expected3_3_not_recharge = [0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1];
 
         describe('with recharge = false', () => {
-            it('1) remembers the match-result n times, skipping the function invocation while in `repeat` mode', () => {
-                const stickyN = coll.sticky(2, {when: x => 1, recharge: true}, coll.identity);
+            it('1) remembers the match-result n times, recharging the counter with every positive hit', () => {
+                const stickyN = coll.sticky(2, {when: x => 1, recharge: true})(coll.identity);
                 const result = coll.map(stickyN, data1);
                 expect(result).toEqual(expected1_2_recharge);
             });
-            it('2) remembers the match-result n times, skipping the function invocation while in `repeat` mode', () => {
-                const stickyN = coll.sticky(2, {when: x => 1, recharge: true}, coll.identity);
+            it('2) remembers the match-result n times, recharging the counter with every positive hit', () => {
+                const stickyN = coll.sticky(2, {when: x => 1, recharge: true})(coll.identity);
                 const result = coll.map(stickyN, data2);
                 expect(result).toEqual(expected2_2_recharge);
             });
-            it('3) remembers the match-result n times, skipping the function invocation while in `repeat` mode', () => {
-                const stickyN = coll.sticky(3, {when: x => 1, recharge: true}, coll.identity);
+            it('3) remembers the match-result n times, recharging the counter with every positive hit', () => {
+                const stickyN = coll.sticky(3, {when: x => 1, recharge: true})(coll.identity);
                 const result = coll.map(stickyN, data3);
                 expect(result).toEqual(expected3_3_recharge);
             });
         });
 
         describe('with recharge = true', () => {
-            it('1) remembers the match-result n times, recharginh the counter with every positive hit', () => {
-                const stickyN = coll.sticky(2, {when: x => 1, recharge: false}, coll.identity);
+            it('1) remembers the match-result n times, skipping the function invocation while in `repeat` mode', () => {
+                const stickyN = coll.sticky(2, {when: x => 1, recharge: false})(coll.identity);
                 const result = coll.map(stickyN, data1);
                 expect(result).toEqual(expected1_2_not_recharge);
             });
-            it('2) remembers the match-result n times, recharginh the counter with every positive hit', () => {
-                const stickyN = coll.sticky(2, {when: x => 1, recharge: false}, coll.identity);
+            it('2) remembers the match-result n times, skipping the function invocation while in `repeat` mode', () => {
+                const stickyN = coll.sticky(2, {when: x => 1, recharge: false})(coll.identity);
                 const result = coll.map(stickyN, data2);
                 expect(result).toEqual(expected2_2_not_recharge);
             });
-            it('3) remembers the match-result n times, recharginh the counter with every positive hit', () => {
-                const stickyN = coll.sticky(3, {when: x => 1, recharge: false}, coll.identity);
+            it('3) remembers the match-result n times, skipping the function invocation while in `repeat` mode', () => {
+                const stickyN = coll.sticky(3, {when: x => 1, recharge: false})(coll.identity);
                 const result = coll.map(stickyN, data3);
                 expect(result).toEqual(expected3_3_not_recharge);
             });

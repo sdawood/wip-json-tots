@@ -47,7 +47,7 @@ const builtins = {
 //     return [key, value];
 // };
 
-const deref = document => (ref, rph = rejectPlaceHolder) => {
+const derefFrom = document => (ref, rph = rejectPlaceHolder) => {
     const noOp = '';
     let [key, [op, path]] = ref; // multiple uses of the placeholder regex within the same string returns the path multiple times, e.g. "({{x.y}})[{{x.y}}]"
     const memberOrDescendant = /^[\[\.]/;
@@ -71,13 +71,13 @@ function renderString(node, phValuePairs) {
     return rendered;
 }
 
-function renderStringNode(node, derefPath) {
+function renderStringNode(node, deref) {
     const refs = sx.tokenize(reph(), node, [], false);
     let rendered;
     if (coll.isEmptyValue(refs)) {
         rendered = node; // string literal with no placeholders
     } else {
-        const derefedPairs = coll.map(derefPath, coll.iterator(refs, {indexed: true, kv: true}));
+        const derefedPairs = coll.map(deref, coll.iterator(refs, {indexed: true, kv: true}));
         console.log('derefedPairs', JSON.stringify(derefedPairs, null, 0));
         console.log('node', node);
         rendered = renderString(node, derefedPairs);
@@ -85,41 +85,79 @@ function renderStringNode(node, derefPath) {
     return rendered;
 }
 
-function renderArrayNode(node, derefPath) {
-    function sticky(n, when = true) {
-        const NONE = {};
-        let counter = n;
-        let memory = NONE;
-        let lastResult;
-        // TODO: wrap hasSpreadOperator with sticky(1) what returns the previous result one more time effectively consuming one more input into the (...) partition as argument for the operator
-        // WIP: https://babeljs.io/repl-old/#?babili=false&evaluate=true&lineWrap=false&presets=stage-0&targets=&browsers=&builtIns=false&debug=false&build=&circleciRepo=&code_lz=GYVwdgxgLglg9mABAZ1hA1gTwBRgDSIDuAFgKZIC8iUATiKQcGAJSIDeAUIohAqogDkA8gICiiKmwC-Abi6IANqSiIAtqVVwamCYJGi53JSoUBDVACVSyEAqiHFyxGFKErNuw-M844KKRpdAAYHGmUQGiRQSFgEbAA6RNMaAHNkVk5uI3Mod1sVKnVNbQduGGBEbDNLa3yJCiphMQz5LOdXPLtdJgSk1PTSrKKtHSoXN1rPVsQpafLK8c6ChqIyFnZp7JqPAvaJncHuXj8A3TBB2bbp-VnZjl4wfhhkUQA3cl0ADwkAPkRvgCkiAATPUqCEOPc-CoACamKCmXQAbQAjARgQQAMwEAAsBAArAQAGwEADsBAAHAQAJwEFFBAC6cge_FQMAwmDeHyobI52EJ1DoDEQzy5LA4wC0lRZKlepgU9EQcAqcIRLSOfDgSniCjgKWwvPQpE57zA2DlCtIzGYcikQA&isEnvPresetTabExpanded=false&isPresetsTabExpanded=false&isSettingsTabExpanded=true&prettier=false&showSidebar=true&version=6.26.0
-        function hasSpreadOperator(element) {
-            if (coll.isString(element)) {
-                const refs = sx.tokenize(reph(), element, [], false);
-                if (coll.isEmptyValue(refs)) {
-                    return false;
-                } else {
-                    let [[key, [op, path]]] = coll.iterator(refs, {indexed: true, kv: true});
-                    console.log('>>>>>>>>>>>>>>>>>>>', key, {op}, path);
-                    let result = op === operator.spread;
-
-                }
-            } else {
-                return false;
-            }
+const hasSpreadOperator = element => {
+    if (coll.isString(element)) {
+        const refs = sx.tokenize(reph(), element, [], false);
+        if (coll.isEmptyValue(refs)) {
+            return false;
+        } else {
+            let [[key, [op, path]]] = coll.iterator(refs, {indexed: true, kv: true});
+            console.log('>>>>>>>>>>>>>>>>>>>', key, {op}, path);
+            return op === operator.spread;
         }
+    } else {
+        return false;
+    }
+}
+
+const spreadMap = (iter, deref) => {
+    const [spreadableNode] = iter;
+    const enumerable = renderStringNode(spreadableNode, deref);
+    // should we verify that the derefed value is spread(able) with ...?
+    // TODO: consider safe spread operator `{...?{`, similar to angular safe access .?
+    if (coll.isContainer(enumerable)) {
+        const [childTemplate] = iter;
+        const iterator = coll.iterator(enumerable, {indexed: true}); // ...values for arrays, ...[value, key]* for objects
+        return coll.map(child => transform(childTemplate, child), enumerable);
+    } else {
+        return enumerable;
     }
 
-    const partitionedGen = coll.partitionBy(hasSpreadOperator, node);
-    const rendered = coll.map(iter => coll.map(coll.identity, iter), partitionedGen);
-    return [];
+};
+
+function renderArrayNode(node, deref) {
+
+    // const hasSpreadOperator = element => {
+    //     if (coll.isString(element)) {
+    //         const refs = sx.tokenize(reph(), element, [], false);
+    //         if (coll.isEmptyValue(refs)) {
+    //             return false;
+    //         } else {
+    //             let [[key, [op, path]]] = coll.iterator(refs, {indexed: true, kv: true});
+    //             console.log('>>>>>>>>>>>>>>>>>>>', key, {op}, path);
+    //             return op === operator.spread;
+    //         }
+    //     } else {
+    //         return false;
+    //     }
+    // }
+    //
+    // const spreadMap = iter => {
+    //     const [spreadableNode] = iter;
+    //     const enumerable = renderStringNode(spreadableNode, deref);
+    //     // should we verify that the derefed value is spread(able) with ...?
+    //     // TODO: consider safe spread operator `{...?{`, similar to angular safe access .?
+    //     if (coll.isContainer(enumerable)) {
+    //         const [childTemplate] = iter;
+    //         const iterator = coll.iterator(enumerable, {indexed: true}); // ...values for arrays, ...[value, key]* for objects
+    //         return coll.map(child => transform(childTemplate, child), enumerable);
+    //     } else {
+    //         return enumerable;
+    //     }
+    //
+    // };
+
+    const sticky2 = coll.sticky(2, {when: coll.always(true), recharge: true}); // return true
+    const partitionedGen = coll.partitionBy(sticky2(hasSpreadOperator), node);
+    const lols = coll.map(iter => iter.metadata() ? spreadMap(iter, deref) : coll.map(coll.identity, iter), partitionedGen);
+    return coll.reduce(coll.cat(), () => [], lols);
 }
 
 const renderObjectNode = coll.identity;
 
 function transform(template, document, {style = 'jsonpath'} = {}) {
     let counter = 1;
-    const derefPath = deref(document);
+    const deref = derefFrom(document);
 
     const result = traverse(template).map(function (node) {
         console.log(counter++, this.path);
@@ -129,11 +167,11 @@ function transform(template, document, {style = 'jsonpath'} = {}) {
         if (coll.isFunction(node)) {
             this.update(node(document)); // R.applySpec style, discouraged since it is not declarative or serializable
         } else if (coll.isArray(node)) {
-            this.update(renderArrayNode(node, derefPath));
+            this.update(renderArrayNode(node, deref));
         } else if (coll.isString(node)) {
-            this.update(renderStringNode(node, derefPath));
+            this.update(renderStringNode(node, deref));
         } else {
-            this.update(renderObjectNode(node));
+            this.update(renderObjectNode(node, deref));
         }
     });
 

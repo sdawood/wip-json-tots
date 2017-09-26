@@ -45,14 +45,14 @@ const original = Object.freeze({
                 'first.name': 'user1',
                 comment: "Excellent! Can't recommend it highly enough! Buy it!",
                 score: 5,
-                viewAs: ['*', '*', '*', '*', '*']
+                viewAs: '*****'
             },
             {
                 author: 'user2@domain2.com',
                 'first.name': 'user2',
                 comment: 'Do yourself a favor and buy this.',
                 score: 5,
-                viewAs: ['*', '*', '*', '*', '*']
+                viewAs: '*****'
             }
         ],
         oneStar: [
@@ -61,7 +61,7 @@ const original = Object.freeze({
                 'first.name': 'user3',
                 comment: 'Terrible product! Do no buy this.',
                 score: 1,
-                viewAs: ['*', '-', '-', '-', '-']
+                viewAs: '*----'
             }
         ]
     },
@@ -176,7 +176,7 @@ describe('transform', () => {
             // related: ['{...{relatedItems}}', 'see also: {{}}'], // <- this ends up calling new Function('data', 'return data.' + 'valueOf()' + ';') for each. TODO: can't do array element reference, using => identity(??) of what?, options: use @ to reference the current element in the for-each behavior?
             reviews: {
                 high: ['prelude', {keyBefore: 'literal value before'}, ['a', 'b', 'c'], '{{productReview.fiveStar.length}}', '{...{productReview.fiveStar}}', {
-                    praise: '{{["comment","author"]}}'
+                    praise: '{*{["comment","author"]}}'
                 }, {keyAfter: 'literal value after'}
                 ],
                 low: ['{...{productReview.oneStar}}', {
@@ -184,7 +184,7 @@ describe('transform', () => {
                 }],
                 disclaimer: 'Ad: {{comment}}'
             },
-            views: ['{...{pictures}}', '[{{view}}]({{view.images.length}})'] // TODO: line:85, replace with /\{\{\}\}/g kinda regex and traverse
+            views: ['{...{pictures}}', '[{{view}}]({{images.length}})']
         };
 
         const expectedResult = {

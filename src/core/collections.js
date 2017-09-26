@@ -28,11 +28,21 @@ const peek = x => {
  * NOTE: map, filter, reduce can handle iterator/generator, lodash and ramda currently don't
  * mapAsync, filterAsync, reduceAsync can handle async generators, lodash and ramda, transducers-js and transducers.js currently don't
  **/
+// Combinators: https://gist.github.com/Avaq/1f0636ec5c8d6aed2e45
+const I = x => x;
+const K = x => y => x;
+const A = f => x => f(x);
+const T = x => f => f(x);
+const W = f => x => f(x)(x);
+const C = f => y => x => f(x)(y);
+const B = f => g => x => f(g(x));
+const S = f => g => x => f(x)(g(x));
+const P = f => g => x => y => f(g(x))(g(y));
+const Y = f => (g => g(g))(g => f(x => g(g)(x)));
 
-const identity = x => x;
+const identity = I;
 const identityAsync = x => Promise.resolve(x);
-const lazy = x => () => x;
-const always = x => () => x;
+const lazy = K;
 
 const empty = function* () {
 };
@@ -148,18 +158,6 @@ function iterator(o, {indexed = false, kv = false, metadata = lazy({})} = {}) {
     return iter;
 }
 
-// function* walk(document, root = '$') {
-//     const entryIter = iterator(document);
-//     const path = [root];
-//     for ([k, v] of entryIter) {
-//         if (isContainer(v)) {
-//             yield* iterator(v, {indexed: true, metadata: () => ({root, parent: [...path, k]})})
-//         } else {
-//             yield v;
-//         }
-//     }
-// }
-
 /**
  * zip generator that works with iterables, iterators and generators
  *
@@ -236,17 +234,17 @@ function* partitionBy(fn, data) {
         if ((lastResult === NONE) || (lastResult === newResult)) {
             buffer.push(value);
         } else {
-            yield iterator(buffer, {metadata: always(lastResult)});
+            yield iterator(buffer, {metadata: lazy(lastResult)});
             buffer = [];
             buffer.push(value);
         }
     }
     if (buffer.length > 0) {
-        yield iterator(buffer, {metadata: always(newResult)});
+        yield iterator(buffer, {metadata: lazy(newResult)});
     }
 }
 
-const sticky = (n, {when = identity, recharge = true} = {}, fn) => {
+const sticky = (n, {when = identity, recharge = true} = {}) => fn => {
     let count = 0;
     let result;
     let memory;
@@ -413,7 +411,10 @@ module.exports = {
     empty,
     identity,
     identityAsync,
-    lazy,
+    K,
+    lazy: K,
+    always: K,
+    constant: K,
     flip,
     pipe,
     compose,
