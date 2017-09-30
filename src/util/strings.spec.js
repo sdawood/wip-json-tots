@@ -112,7 +112,7 @@ describe('tokenize', () => {
             // NOTE: to get properly escaped regex string, create a regex using /your-regex-here/ then use .source()
 
             it('defaults to $index of capture group when attributeNames are not provided', () => {
-                expect(strings.tokenize(regexStr, text)).toEqual({
+                expect(strings.tokenize(regexStr, text, {sequence: true})).toEqual({
                     $1: 'fhname',
                     $2: '2020/07/17/01',
                     $3: 'type',
@@ -123,7 +123,7 @@ describe('tokenize', () => {
             });
 
             it('uses attribute names as keys when attributeNames are provided', () => {
-                expect(strings.tokenize(regexStr, text, attributeName)).toEqual({
+                expect(strings.tokenize(regexStr, text, {tokenNames: attributeName, sequence: true})).toEqual({
                     deliveryStreamName: 'type',
                     rangeStart: '2020/07/17/01',
                     fhname: 'fhname',
@@ -134,7 +134,10 @@ describe('tokenize', () => {
             });
 
             it('uses partial attribute names as keys when partial attributeNames are provided', () => {
-                expect(strings.tokenize(regexStr, text, [attributeName[0], undefined, attributeName[2]])).toEqual(expect.objectContaining({
+                expect(strings.tokenize(regexStr, text, {
+                    tokenNames: [attributeName[0], undefined, attributeName[2]],
+                    sequence: true
+                })).toEqual(expect.objectContaining({
                     fhname: 'fhname',
                     deliveryStreamName: 'type'
                 }));
@@ -143,7 +146,7 @@ describe('tokenize', () => {
 
         describe('when called with RegExp instance', () => {
             it('defaults to $index of capture group when attributeNames are not provided', () => {
-                expect(strings.tokenize(regex, text)).toEqual({
+                expect(strings.tokenize(regex, text, {sequence: true})).toEqual({
                     $1: 'fhname',
                     $2: '2020/07/17/01',
                     $3: 'type',
@@ -154,7 +157,7 @@ describe('tokenize', () => {
             });
 
             it('uses attribute names as keys when attributeNames are provided', () => {
-                expect(strings.tokenize(regex, text, attributeName)).toEqual({
+                expect(strings.tokenize(regex, text, {tokenNames: attributeName, sequence: true})).toEqual({
                     deliveryStreamName: 'type',
                     rangeStart: '2020/07/17/01',
                     fhname: 'fhname',
@@ -165,7 +168,10 @@ describe('tokenize', () => {
             });
 
             it('uses partial attribute names as keys when partial attributeNames are provided', () => {
-                expect(strings.tokenize(regex, text, [attributeName[0], undefined, attributeName[2]])).toEqual(expect.objectContaining({
+                expect(strings.tokenize(regex, text, {
+                    tokenNames: [attributeName[0], undefined, attributeName[2]],
+                    sequence: true
+                })).toEqual(expect.objectContaining({
                     fhname: 'fhname',
                     deliveryStreamName: 'type'
                 }));
@@ -205,35 +211,49 @@ describe('tokenize', () => {
 
         const opCombinations = [
             // INCEPTION
-            ['..', {}],
-            ['...', {}],
-            ['....', {}],
-            ['.5', {}],
-            ['.10', {}],
-            ['.100', {}],
+            ['..', {$1: '..'}],
+            ['...', {$1: '...'}],
+            ['....', {$1: '....'}],
+            ['.5', {$1: '.5'}],
+            ['.10', {$1: '.10'}],
+            ['.100', {$1: '.100'}],
             // INVALID INCEPTION
-            ['.1000', {}],
+            ['.1000', {$1: '.100'}], // TODO: do we want to be more strict?
             // ENUMERATION
-            ['*', {}],
-            []// FLATENNING
-            ['**', {}],
+            ['*', {$2: '*'}],
+            // FLATENNING
+            ['**', {$2: '**'}],
+            // BINDING/SYMBOL
+            [' : ', {$3: ':'}],
             // COMBINATIONS
-            ['.. | *', {}],
-            ['.1 | *', {}],
-            ['.10 | *', {}],
-            ['.. | **', {}],
-            ['.1 | **', {}],
-            ['.10 | **', {}],
-            // INVALID COMBINATIONS
-            [' * | .. ', {}],
-            [' * | .1 ', {}],
-            [' ** | .. ', {}],
-            [' ** | .1 ', {}],
+            ['.. | *', {$1: '..', $2: '*'}],
+            ['.1 | *', {$1: '.1', $2: '*'}],
+            ['.10 | *', {$1: '.10', $2: '*'}],
+            ['.. | **', {$1: '..', $2: '**'}],
+            ['.1 | **', {$1: '.1', $2: '**'}],
+            ['.10 | **', {$1: '.10', $2: '**'}],
+            ['.. | * | : ', {$1: '..', $2: '*', $3: ':'}],
+            ['.1 | * | : ', {$1: '.1', $2: '*', $3: ':'}],
+            ['.10 | * | : ', {$1: '.10', $2: '*', $3: ':'}],
+            ['.. | ** | : ', {$1: '..', $2: '**', $3: ':'}],
+            ['.1 | ** | : ', {$1: '.1', $2: '**', $3: ':'}],
+            ['.10 | ** | : ', {$1: '.10', $2: '**', $3: ':'}]
         ];
-        it('captures ops, path and pipes', () => {
+        const opsOOOCombinations = [
+            // OUT OF ORDER COMBINATIONS
+            [' * | .. ', {$1: '..', $2: '*'}],
+            [' * | .1 ', {$1: '.1', $2: '*'}],
+            [' ** | .. ', {$1: '..', $2: '**'}],
+            [' ** | .1 ', {$1: '.1', $2: '**'}],
+            [' : | .. ', {$1: '..', $3: ':'}],
+            [' : | * ', {$2: '*', $3: ':'}],
+            [' : | ** ', {$2: '**', $3: ':'}],
+            [' : | .1 ', {$1: '.1', $3: ':'}]
+        ];
+        it('captures ops, path and pipes into $n capture groups', () => {
             const regex = /{(.*?){(.*?)}(.*?)}/g;
             const text = '{op{x.y.z}pipes}';
-            expect(strings.tokenize(regex, text, [], false)).toEqual({
+            expect(strings.tokenize(regex, text, {$n: false, sequence: true})).toEqual({
                 [text]: [
                     'op',
                     'x.y.z',
@@ -242,16 +262,36 @@ describe('tokenize', () => {
             });
         });
         describe('captures all operations respecting allowed order', () => {
+            // https://regex101.com/r/dMUYpQ/7
+            const opregex = /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:)?\s*/g;
+            // const opregex = /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:)?\s*/;
+            const tokenNames = ['inception', 'enumerate', 'symbol'];
+            const lookup = {$1: tokenNames[0], $2: tokenNames[1], $3: tokenNames[2]};
+            const alias = ({$1, $2, $3}) => {
+                const expected = {};
+                if ($1) expected[lookup['$1']] = $1;
+                if ($2) expected[lookup['$2']] = $2;
+                if ($3) expected[lookup['$3']] = $3;
+                return expected;
+            };
+
             it('#1 captures ops', () => {
-                const regex = /{(.*?){(.*?)}(.*?)}/g;
-                const text = '{op{x.y.z}pipes}';
-                const opregex = /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*/;
-                const opText = strings.tokenize(regex, text)[text][0];
-                expect(strings.tokenize(regex, text)).toEqual({
-                    $1: 'op',
-                    $2: 'x.y.z',
-                    $3: 'pipes'
-                });
+                for (const [ops, expected] of opCombinations) {
+                    expect(strings.tokenize(opregex, ops)).toEqual(expected);
+                }
+            });
+            it('#2 handles out of order combinations', () => {
+                for (const [ops, expected] of opsOOOCombinations) {
+                    expect(strings.tokenize(opregex, ops)).toEqual(expected);
+                }
+            });
+            it('#3 aliases capture groups with supplied names', () => {
+                for (const [ops, expected] of opCombinations) {
+                    expect(strings.tokenize(opregex, ops, {tokenNames})).toEqual(alias(expected));
+                }
+                for (const [ops, expected] of opsOOOCombinations) {
+                    expect(strings.tokenize(opregex, ops, {tokenNames})).toEqual(alias(expected));
+                }
             });
         });
     });

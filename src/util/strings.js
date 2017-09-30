@@ -41,7 +41,7 @@ function _tokenize(regex, str, tokenNames = [], $n = true) {
  * @param keys
  * @returns {function(...[*])}
  */
-function* tokenGenerator(regex, str) {
+function* tokenGenerator(regex, str, {sequence = false} = {}) {
     regex = new RegExp(regex); // normalize string and regex args, also refresh exhausted regex
     const multi = regex.flags.includes('g');
     let matches = regex.exec(str);
@@ -50,17 +50,38 @@ function* tokenGenerator(regex, str) {
     do {
         lastIndex = matches.index;
         const match = matches.shift();
-        yield* matches.map(token => ({match, token}));
-    } while (multi && (matches = regex.exec(str)) !== null && (matches.index !== lastIndex)) // avoid inifinte loop if the regex matches empty string, exec would keep on returning the same match over and over
+        // yield* matches/*.filter(token => !!token)*/.map(token => ({match, token})); // if we filter out undefined capture groups when the regex matches empty string we shift capture group identifiers!
+        if (sequence) { // WARNING: only use to get sequences of matches for interpolation purposes, don't use for strict capture group tokenization, capture group names/indexes might shift up
+            yield* matches.map(token => ({match, token}));
+        } else {
+            yield matches;
+        }
+
+    } while (multi && (matches = regex.exec(str)) !== null && (matches.index !== lastIndex)) // avoid infinite loop if the regex (by design) matches empty string, exec would keep on returning the same match over and over
 }
 
-function tokenize(regex, str, tokenNames = [], $n = true) {
-    const tokenIter = coll.iterator(tokenGenerator(regex, str), {indexed: true});
-    return coll.reduce((acc, [{match, token}, index]) => {
-        const key = tokenNames[index] || ($n ? `$${index + 1}` : match);
-        acc[key] = acc[key] ? [...acc[key], token] : $n ? token : [token];
-        return acc;
-    }, () => ({}), tokenIter);
+function tokenize(regex, str, {tokenNames = [], $n = true, sequence = false} = {}) {
+    if (sequence) {
+        // interpolation, find all placeholders with the intention of later replacement, a placeholder might repeat, and there is no notion of $1 $2 as specific capture groups
+        const tokenIter = coll.iterator(tokenGenerator(regex, str, {sequence}), {indexed: true});
+        return coll.reduce((acc, [{match, token}, index]) => {
+            if (token == null) return acc;
+            const key = tokenNames[index] || ($n ? `$${index + 1}` : match);
+            acc[key] = acc[key] ? [...acc[key], token] : $n ? token : [token];
+            return acc;
+        }, () => ({}), tokenIter);
+    } else {
+        // capture group oriented tokenization
+        const tokenIter = coll.iterator(tokenGenerator(regex, str));
+        return coll.reduce((acc, matches) => {
+            for (const [index, token] of matches.entries()) {
+                if (token == null) continue;
+                const key = tokenNames[index] || `$${index + 1}`;
+                acc[key] = token;
+            }
+            return acc;
+        }, () => ({}), tokenIter);
+    }
 }
 
 
