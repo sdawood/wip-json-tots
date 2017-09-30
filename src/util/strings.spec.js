@@ -68,7 +68,7 @@ describe('lazyTemplate creates a template function that accepts a Map arguments'
         const templateWithStringKeysSingleQuoted = "Welcome user: '{{lastName}}' ... '{{firstName}}' ... '{{lastName}}'";
         const templateWithDoubleQuotedStringKeys = 'Welcome user: {{"lastName"}} ... {{"firstName"}} ... {{"lastName"}}';
         const templateWithSingleQuotedStringKeys = "Welcome user: {{'lastName'}} ... {{'firstName'}} ... {{'lastName'}}";
-        const options = {placeholder: { open: '{{', close: '}}'}};
+        const options = {placeholder: {open: '{{', close: '}}'}};
 
         it('when called with a string', () => {
             const template = strings.lazyTemplate(templateWithStringKeys, options);
@@ -103,71 +103,156 @@ describe('lazyTemplate creates a template function that accepts a Map arguments'
 });
 
 describe('tokenize', () => {
-    const text = 'unprocessed/2017/07/17/01/segment-firehose-online-prod-1-2017-07-17-01-03-06-6f6765f9-0e4f-4949-bd9a-ce72be9dfe30';
-    const regex = /^(.*?)\/(\d{4}\/\d{2}\/\d{2}\/\d{2})\/(.*)(?=-\d+-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})-(\d+)-(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})-(.*)$/; //https://regex101.com/r/yQ6Dyn/1
-    const regexStr = '^(.*?)\\/(\\d{4}\\/\\d{2}\\/\\d{2}\\/\\d{2})\\/(.*)(?=-\\d+-\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{2})-(\\d+)-(\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{2})-(.*)$';
-    const attributeName = ['prefix', 'rangeStart', 'deliveryStreamName', 'deliveryStreamVersion', 'timestamp', 'uuid'];
-    describe('when called with regex string', () => {
-        // NOTE: to get properly escaped regex string, create a regex using /your-regex-here/ then use .source()
+    describe('non repeating capture groups', () => {
+        const text = 'fhname/2020/07/17/01/type-1-2020-07-17-01-03-06-6f6765f9-0e4f-4949-bd9a-ce72be9dfe30';
+        const regex = /^(.*?)\/(\d{4}\/\d{2}\/\d{2}\/\d{2})\/(.*)(?=-\d+-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})-(\d+)-(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})-(.*)$/; //https://regex101.com/r/yQ6Dyn/1
+        const regexStr = '^(.*?)\\/(\\d{4}\\/\\d{2}\\/\\d{2}\\/\\d{2})\\/(.*)(?=-\\d+-\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{2})-(\\d+)-(\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{2})-(.*)$';
+        const attributeName = ['fhname', 'rangeStart', 'deliveryStreamName', 'deliveryStreamVersion', 'timestamp', 'uuid'];
+        describe('when called with regex string', () => {
+            // NOTE: to get properly escaped regex string, create a regex using /your-regex-here/ then use .source()
 
-        it('defaults to $index of capture group when attributeNames are not provided', () => {
-            expect(strings.tokenize(regexStr, text)).toEqual({
-                $1: 'unprocessed',
-                $2: '2017/07/17/01',
-                $3: 'segment-firehose-online-prod',
-                $4: '1',
-                $5: '2017-07-17-01-03-06',
-                $6: '6f6765f9-0e4f-4949-bd9a-ce72be9dfe30'
+            it('defaults to $index of capture group when attributeNames are not provided', () => {
+                expect(strings.tokenize(regexStr, text)).toEqual({
+                    $1: 'fhname',
+                    $2: '2020/07/17/01',
+                    $3: 'type',
+                    $4: '1',
+                    $5: '2020-07-17-01-03-06',
+                    $6: '6f6765f9-0e4f-4949-bd9a-ce72be9dfe30'
+                });
+            });
+
+            it('uses attribute names as keys when attributeNames are provided', () => {
+                expect(strings.tokenize(regexStr, text, attributeName)).toEqual({
+                    deliveryStreamName: 'type',
+                    rangeStart: '2020/07/17/01',
+                    fhname: 'fhname',
+                    timestamp: '2020-07-17-01-03-06',
+                    uuid: '6f6765f9-0e4f-4949-bd9a-ce72be9dfe30',
+                    deliveryStreamVersion: '1'
+                });
+            });
+
+            it('uses partial attribute names as keys when partial attributeNames are provided', () => {
+                expect(strings.tokenize(regexStr, text, [attributeName[0], undefined, attributeName[2]])).toEqual(expect.objectContaining({
+                    fhname: 'fhname',
+                    deliveryStreamName: 'type'
+                }));
             });
         });
 
-        it('uses attribute names as keys when attributeNames are provided', () => {
-            expect(strings.tokenize(regexStr, text, attributeName)).toEqual({
-                deliveryStreamName: 'segment-firehose-online-prod',
-                rangeStart: '2017/07/17/01',
-                prefix: 'unprocessed',
-                timestamp: '2017-07-17-01-03-06',
-                uuid: '6f6765f9-0e4f-4949-bd9a-ce72be9dfe30',
-                deliveryStreamVersion: '1'
+        describe('when called with RegExp instance', () => {
+            it('defaults to $index of capture group when attributeNames are not provided', () => {
+                expect(strings.tokenize(regex, text)).toEqual({
+                    $1: 'fhname',
+                    $2: '2020/07/17/01',
+                    $3: 'type',
+                    $4: '1',
+                    $5: '2020-07-17-01-03-06',
+                    $6: '6f6765f9-0e4f-4949-bd9a-ce72be9dfe30'
+                });
             });
-        });
 
-        it('uses partial attribute names as keys when partial attributeNames are provided', () => {
-            expect(strings.tokenize(regexStr, text, [attributeName[0], undefined, attributeName[2]])).toEqual(expect.objectContaining({
-                prefix: 'unprocessed',
-                deliveryStreamName: 'segment-firehose-online-prod'
-            }));
+            it('uses attribute names as keys when attributeNames are provided', () => {
+                expect(strings.tokenize(regex, text, attributeName)).toEqual({
+                    deliveryStreamName: 'type',
+                    rangeStart: '2020/07/17/01',
+                    fhname: 'fhname',
+                    timestamp: '2020-07-17-01-03-06',
+                    uuid: '6f6765f9-0e4f-4949-bd9a-ce72be9dfe30',
+                    deliveryStreamVersion: '1'
+                });
+            });
+
+            it('uses partial attribute names as keys when partial attributeNames are provided', () => {
+                expect(strings.tokenize(regex, text, [attributeName[0], undefined, attributeName[2]])).toEqual(expect.objectContaining({
+                    fhname: 'fhname',
+                    deliveryStreamName: 'type'
+                }));
+            });
         });
     });
+    describe('template {ops{path expressions}pipes}', () => {
+        const ops = [
+            // NO OP
+            '',
+            // INCEPTION
+            '..',
+            '.1',
+            '...',
+            '.2',
+            '....',
+            '.....',
+            '.10',
+            '.100',
+            '.1000',
+            // ENUMERATE
+            '*',
+            // FLATTEN
+            '**'
+        ];
+        const pipes = [
+            // NO OP
+            '',
+            // INCEPTION
+            'foo',
+            'bar',
+            // ENUMERATE
+            '*',
+            // FLATTEN
+            '**'
+        ];
 
-    describe('when called with RegExp instance', () => {
-        it('defaults to $index of capture group when attributeNames are not provided', () => {
-            expect(strings.tokenize(regex, text)).toEqual({
-                $1: 'unprocessed',
-                $2: '2017/07/17/01',
-                $3: 'segment-firehose-online-prod',
-                $4: '1',
-                $5: '2017-07-17-01-03-06',
-                $6: '6f6765f9-0e4f-4949-bd9a-ce72be9dfe30'
+        const opCombinations = [
+            // INCEPTION
+            ['..', {}],
+            ['...', {}],
+            ['....', {}],
+            ['.5', {}],
+            ['.10', {}],
+            ['.100', {}],
+            // INVALID INCEPTION
+            ['.1000', {}],
+            // ENUMERATION
+            ['*', {}],
+            []// FLATENNING
+            ['**', {}],
+            // COMBINATIONS
+            ['.. | *', {}],
+            ['.1 | *', {}],
+            ['.10 | *', {}],
+            ['.. | **', {}],
+            ['.1 | **', {}],
+            ['.10 | **', {}],
+            // INVALID COMBINATIONS
+            [' * | .. ', {}],
+            [' * | .1 ', {}],
+            [' ** | .. ', {}],
+            [' ** | .1 ', {}],
+        ];
+        it('captures ops, path and pipes', () => {
+            const regex = /{(.*?){(.*?)}(.*?)}/g;
+            const text = '{op{x.y.z}pipes}';
+            expect(strings.tokenize(regex, text, [], false)).toEqual({
+                [text]: [
+                    'op',
+                    'x.y.z',
+                    'pipes'
+                ]
             });
         });
-
-        it('uses attribute names as keys when attributeNames are provided', () => {
-            expect(strings.tokenize(regex, text, attributeName)).toEqual({
-                deliveryStreamName: 'segment-firehose-online-prod',
-                rangeStart: '2017/07/17/01',
-                prefix: 'unprocessed',
-                timestamp: '2017-07-17-01-03-06',
-                uuid: '6f6765f9-0e4f-4949-bd9a-ce72be9dfe30',
-                deliveryStreamVersion: '1'
+        describe('captures all operations respecting allowed order', () => {
+            it('#1 captures ops', () => {
+                const regex = /{(.*?){(.*?)}(.*?)}/g;
+                const text = '{op{x.y.z}pipes}';
+                const opregex = /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*/;
+                const opText = strings.tokenize(regex, text)[text][0];
+                expect(strings.tokenize(regex, text)).toEqual({
+                    $1: 'op',
+                    $2: 'x.y.z',
+                    $3: 'pipes'
+                });
             });
-        });
-
-        it('uses partial attribute names as keys when partial attributeNames are provided', () => {
-            expect(strings.tokenize(regex, text, [attributeName[0], undefined, attributeName[2]])).toEqual(expect.objectContaining({
-                prefix: 'unprocessed',
-                deliveryStreamName: 'segment-firehose-online-prod'
-            }));
         });
     });
 });

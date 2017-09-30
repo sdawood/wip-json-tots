@@ -13,7 +13,8 @@ const operator = {
     plus: '+',
     flatten: '*',
     spread: /../,
-    spreadN: /\.\d+/
+    spreadN: /\.\d+/,
+    kv: /:/
 };
 
 const placeholder = {
@@ -32,6 +33,12 @@ const builtins = {
 
 const jpify = path => path.startsWith('$') ? path : regex.memberOrDescendant.test(path) ? `$${path}` : `$.${path}`;
 
+// meta-0 template transform :: document -> path -> value
+/**
+ * NOTE: data first as an exception allows for scoping the deref function into a nested scope by pre-evaluating with a scope-document
+ * @param document
+ */
+
 const derefFrom = document => (ref, rph = rejectPlaceHolder) => {
     const noOp = '';
     let [key, [op, path, pipes]] = ref; // multiple uses of the placeholder regex within the same string returns the path multiple times, e.g. "({{x.y}})[{{x.y}}]"
@@ -42,7 +49,7 @@ const derefFrom = document => (ref, rph = rejectPlaceHolder) => {
     return [key, value];
 };
 
-function renderString(node, phValuePairs) {
+function XrenderString(node, phValuePairs) {
     let rendered;
     if (phValuePairs.length === 1 && phValuePairs[0][0] === node) {
         rendered = phValuePairs[0][1]; // stand alone '{{path}}' expands to value, without toString conversion
@@ -53,7 +60,7 @@ function renderString(node, phValuePairs) {
     return rendered;
 }
 
-function expandStringNode(node) {
+function XexpandStringNode(node) {
     const refs = sx.tokenize(reph(), node, [], false);
     let rendered;
     if (coll.isEmptyValue(refs)) {
@@ -65,7 +72,7 @@ function expandStringNode(node) {
     return rendered;
 }
 
-function renderStringNode(node, deref) {
+function XrenderStringNode(node, deref) {
     const refs = sx.tokenize(reph(), node, [], false);
     let rendered;
     if (coll.isEmptyValue(refs)) {
@@ -77,7 +84,7 @@ function renderStringNode(node, deref) {
     return rendered;
 }
 
-const hasSpreadOperator = element => {
+const XhasSpreadOperator = element => {
     if (coll.isString(element)) {
         const refs = sx.tokenize(reph(), element, [], false);
         if (coll.isEmptyValue(refs)) {
@@ -91,7 +98,7 @@ const hasSpreadOperator = element => {
     }
 };
 
-const forEach = (iter, deref) => {
+const XforEach = (iter, deref) => {
     const [spreadableNode] = iter;
     const enumerable = renderStringNode(spreadableNode, deref);
     // TODO: consider safe spread operator `{..?{` or `{.5?{`, similar to angular safe access .?
@@ -105,7 +112,7 @@ const forEach = (iter, deref) => {
 
 };
 
-function renderArrayNode(node, deref) {
+function XrenderArrayNode(node, deref) {
     // TODO: we need to know how many items ahead the .n or .... operator wants to consume to set the sticky value, CHICKEN & EGG problem???
     // TODO: we need the partitionBy function to be able to communicate to memorizeWhen decorator, how?
     const sticky2 = coll.sticky(2, {when: coll.always(true), recharge: true});

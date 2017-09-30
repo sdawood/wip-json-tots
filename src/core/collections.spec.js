@@ -185,6 +185,72 @@ describe('sync', () => {
         });
     });
 
+    describe('slice', () => {
+        const data = ['a', 'b', 'c', 'd', 'e', 'f'];
+
+        it('no params yields copy', () => {
+            expect(coll.slice(data)).toEqual(data);
+        });
+
+        it('no end param defaults to end', () => {
+            expect(coll.slice(data, 2)).toEqual(data.slice(2));
+        });
+
+        it('zero end param yields empty', () => {
+            expect(coll.slice(data, 0, 0)).toEqual([]);
+        });
+
+        it('first element with explicit params', () => {
+            expect(coll.slice(data, 0, 1, 1)).toEqual(['a']);
+        });
+
+        it('last element with explicit params', () => {
+            expect(coll.slice(data, -1, 6)).toEqual(['f']);
+        });
+
+        it('empty extents and negative step reverses', () => {
+            expect(coll.slice(data, null, null, -1)).toEqual(['f', 'e', 'd', 'c', 'b']);
+        });
+
+        it('meaningless negative step partial slice', () => {
+            expect(coll.slice(data, 2, 4, -1)).toEqual([]);
+        });
+
+        it('negative step partial slice no start defaults to end', () => {
+            expect(coll.slice(data, null, 2, -1)).toEqual(coll.slice(data, data.length, 2, -1));
+            expect(coll.slice(data, null, 2, -1)).toEqual(['f', 'e', 'd']);
+        });
+
+        it('extents clamped end', () => {
+            expect(coll.slice(data, null, 100)).toEqual(data);
+        });
+
+        it('extents clamped beginning', () => {
+            expect(coll.slice(data, -100, 100)).toEqual(data);
+        });
+
+        it('backwards extents yields empty', () => {
+            expect(coll.slice(data, 2, 1)).toEqual([]);
+        });
+
+        it('zero step gets shot down', () => {
+            expect(() => {
+                coll.slice(data, null, null, 0);
+            }).toThrow();
+        });
+
+        it('slice with step > 1', () => {
+            const results = coll.slice(data, 0, 4, 2);
+            expect(results).toEqual(['a', 'c']);
+        });
+
+        it('meaningless slice with start < end, step < 0', () => {
+            const results = coll.slice(data, 0, 2, -1);
+            expect(results).toEqual([]);
+        });
+
+    });
+
     describe('partitionBy', () => {
         it('yields a partition iterator everytime the supplied function changes result', () => {
             const data = [0, 1, 2, 'a', 'b', 'c', 3, 'd', 'e', 4, 5, 6, 7, 'f'];

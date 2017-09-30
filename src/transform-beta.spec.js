@@ -2,7 +2,7 @@ const {clone, flatten, countBy, keys, values, prop, map, reduce, pipe, toUpper, 
 const append = flip(concat); // ramda philosophically doesn't append to a string!!! https://github.com/ramda/ramda/issues/1805
 
 const coll = require('./core/collections');
-const {transform} = require('./transform-alpha');
+const {transform} = require('./transform-beta');
 
 const original = Object.freeze({
     id: 123,
@@ -70,7 +70,7 @@ const original = Object.freeze({
 });
 
 describe('transform', () => {
-    describe('deref-jsonpath:: simple interpolation', () => {
+    describe('deref-jsonpath:: meta-0 simple interpolation', () => {
         const template = {
             name: '{{title}} [{{description}}] http://items/{{title}}',
             reviews: {
@@ -82,8 +82,9 @@ describe('transform', () => {
             safety: '{{["Safety.Warning.On.Root"]}}',
             topRaters: '{{productReview.fiveStar[0]["first.name"]}} - {{productReview.fiveStar[1]["first.name"]}} - {{productReview.oneStar[0]["first.name"]}}',
             topTaggers: '{{tags["tag-name-with-dash"].author}} - {{tags["tag name with spaces"].author}} - {{tags["tag.name.with.dots"].author}}',
-            scores: '{+{..score}}', // <- * means get one or more search results. The value is substituted as is unless the place holder is a part of a bigger string, in that case it is replaced into the string template
-            oneScore: '{{..score}}' // <- * means get exactly one search results. The value is substituted as is unless the place holder is a part of a bigger string, in that case it is replaced into the string template
+            scores: '{+{productReview..score}}', // <- * means get one or more search results. The value is substituted as is unless the place holder is a part of a bigger string, in that case it is replaced into the string template
+            oneScore: '{{productReview..score}}', // <- * means get exactly one search results. The value is substituted as is unless the place holder is a part of a bigger string, in that case it is replaced into the string template
+            users: '{+{..author}}'
         };
 
         const expectedResult = {
@@ -98,7 +99,8 @@ describe('transform', () => {
             topRaters: 'user1 - user2 - user3',
             topTaggers: 'memberUser4 - memberUser4 - memberUser4',
             scores: [5, 5, 1],
-            oneScore: 1
+            oneScore: 1,
+            users: ['anonymousUser1', 'anonymousUser2', 'memberUser3', 'memberUser4', 'memberUser4', 'memberUser4', 'user1@domain1.com', 'user2@domain2.com', 'user3@domain3.com']
         };
 
         let result;
@@ -125,7 +127,6 @@ describe('transform', () => {
     describe('simple template array mapping interpolation', () => {
         const template = {
             name: '{{title}}',
-            // related: ['{..{relatedItems}}', 'see also: {{}}'], // <- this ends up calling new Function('data', 'return data.' + 'valueOf()' + ';') for each. TODO: can't do array element reference, using => identity(??) of what?, options: use @ to reference the current element in the for-each behavior?
             reviews: {
                 high: ['prelude', {keyBefore: 'literal value before'}, ['a', 'b', 'c'], '{{productReview.fiveStar.length}}', '{..{productReview.fiveStar}}', {
                     praise: '{+{["comment","author"]}}'
@@ -136,7 +137,8 @@ describe('transform', () => {
                 }],
                 disclaimer: 'Ad: {{comment}}'
             },
-            views: ['{..{pictures}}', '[{{view}}]({{images.length}})']
+            views: ['{..{pictures}}', '[{{view}}]({{images.length}})'],
+            profiles: ['{..{..author}}', 'www.domain.com/user/?name={{$}}']
         };
 
         const expectedResult = {

@@ -1,8 +1,9 @@
 const coll = require('../core/collections');
 
 module.exports = {
-    isString,
+    isString: coll.isString,
     escapeStringForRegex,
+    tokenGenerator,
     tokenize,
     lazyTemplateTag,
     templatePlaceholders,
@@ -43,12 +44,14 @@ function _tokenize(regex, str, tokenNames = [], $n = true) {
 function* tokenGenerator(regex, str) {
     regex = new RegExp(regex); // normalize string and regex args, also refresh exhausted regex
     const multi = regex.flags.includes('g');
-    let matches = regex.exec(str);;
+    let matches = regex.exec(str);
     if (matches === null) return;
+    let lastIndex;
     do {
+        lastIndex = matches.index;
         const match = matches.shift();
         yield* matches.map(token => ({match, token}));
-    } while (multi && (matches = regex.exec(str)) !== null)
+    } while (multi && (matches = regex.exec(str)) !== null && (matches.index !== lastIndex)) // avoid inifinte loop if the regex matches empty string, exec would keep on returning the same match over and over
 }
 
 function tokenize(regex, str, tokenNames = [], $n = true) {
@@ -102,6 +105,6 @@ function lazyTemplate(template, options) {
     };
 }
 
-function isString(value) {
-    return (typeof value === 'string' || value instanceof String);
-}
+// function isString(value) {
+//     return (typeof value === 'string' || value instanceof String);
+// }

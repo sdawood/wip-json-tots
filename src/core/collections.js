@@ -2,15 +2,17 @@
 const _ = require('lodash');
 const jp = require('jsonpath');
 
+const logger = require('../util/logger');
+
 // functional debugging 101, peek into function names
 /**
  * debugging decorator that logs function name when the decorated function is invoked
  * @param fn: can be a function defined with the `function` keyword, or `let foo = () => {}; foo = which(foo);`
  */
 const which = (fn, {input = true, output = true, stringify = true} = {}) => (...args) => {
-    console.log(`${fn.name || 'function'}(${input ? args : '...'})`);
+    logger.log(`${fn.name || 'function'}(${input ? JSON.stringify(args, null, 0) : '...'})`);
     const result = fn(...args);
-    if (output) console.log(`${fn.name || 'function'} :: (${input ? args : '...'}) -> ${stringify ? JSON.stringify(result, null, 0) : result}`);
+    if (output) logger.log(`${fn.name || 'function'} :: (${input ? JSON.stringify(args, null, 0) : '...'}) -> ${stringify ? JSON.stringify(result, null, 0) : result}`);
     return result;
 };
 
@@ -20,7 +22,7 @@ const which = (fn, {input = true, output = true, stringify = true} = {}) => (...
  * @returns {*}
  */
 const peek = x => {
-    console.log(x);
+    logger.log(x);
     return x;
 };
 
@@ -48,6 +50,8 @@ const lazy = K;
 
 const empty = function* () {
 };
+
+const yrruc = fn => (...args) => x => fn(x, ...args); // reversed `curry`
 
 const pipe = (...fns) => fns.reduceRight((f, g) => (...args) => f(g(...args)));
 
@@ -94,6 +98,8 @@ const isEmptyValue = x => isNil(x) || !isNumber(x) && !isFunction(x) && Object.k
 // const isArray = o => Array.isArray(o);
 const isContainer = o => isObject(o) || isArray(o);
 
+/******************* [ Generators ] *******************/
+
 /**
  * returns entries generator/iterator, with [key, value] pairs similar to Map.entries() or with [value, key] pairs, similar to Ramda.mapObjIndexed
  *
@@ -112,6 +118,115 @@ function* entries(o, values = false, kv = true) {
         kv ? yield* zip(entryKeys, entryKeys.map(k => o[k])) : yield* zip(entryKeys.map(k => o[k]), entryKeys);
     }
 }
+
+
+function* range(...args) {
+    switch (args.length) {
+        case 1: {
+            break;
+        }
+        case 2: {
+            break;
+        }
+
+    }
+    if (!isNumber(take) || !isNumber(start)) return;
+    while (take) {
+    }
+}
+
+/**
+ * zip generator that works with iterables, iterators and generators
+ *
+ * Lodash and ramda only support concrete arrays!
+ *
+ * @param enumerator1: enumerable, i.e. iterable, iterator or generator
+ * @param enumerator2: enumerable, i.e. iterable, iterator or generator
+ * @param fn: pair transform function of arity 2
+ */
+function* zipWithGen(enumerator1, enumerator2, fn = (x1, x2) => [x1, x2]) {
+    let count = 0;
+    enumerator1 = iterator(enumerator1);
+    enumerator2 = iterator(enumerator2);
+    for (const e1 of enumerator1) {
+        const {value: e2, done} = enumerator2.next();
+        if (done) return count;
+        yield fn(e1, e2); // cater for mutable and immutable collections
+        count++;
+    }
+}
+
+const zipWith = (enumerator1, enumerator2, fn) => iterator(zipWithGen(enumerator1, enumerator2, fn));
+const zip = (enumerator1, enumerator2) => zipWith(enumerator1, enumerator2);
+
+function* takeGen(n, enumerable) {
+    let {value, done} = enumerable.next();
+    while (!done && n-- > 0) {
+        yield value;
+        ({value, done} = enumerable.next());
+    }
+}
+
+const take = (n, enumerable) => iterator(takeGen(n, enumerable)); // TODO: implement take as a stateful transformer/transducer for composability
+
+function* skipGen(n, enumerable) {
+    let done = false;
+    while (!done && n-- > 0) {
+        ({done} = enumerable.next());
+    }
+    yield* enumerable;
+}
+
+const skip = (n, enumerable) => iterator(skipGen(n, enumerable)); // TODO: implement take as a stateful transformer/transducer for composability
+
+function* partitionBy(fn, data) {
+    const NONE = {};
+    const iter = iterator(data);
+    let buffer = [];
+    let memory = NONE;
+    let lastResult;
+    let newResult;
+    for (const value of iter) {
+        lastResult = memory;
+        newResult = fn(value);
+        memory = newResult;
+        if ((lastResult === NONE) || (lastResult === newResult)) {
+            buffer.push(value);
+        } else {
+            yield iterator(buffer, {metadata: lazy(lastResult)});
+            buffer = [];
+            buffer.push(value);
+        }
+    }
+    if (buffer.length > 0) {
+        yield iterator(buffer, {metadata: lazy(newResult)});
+    }
+}
+
+// credits: https://stackoverflow.com/a/37580979/8316720
+function* permute(...args) {
+    const count = args.length;
+    yield args.slice();
+    const c = new Array(count).fill(0);
+    let i = 1, k, p;
+
+    while (i < count) {
+        if (c[i] < i) {
+            k = i % 2 && c[i];
+            p = args[i];
+            args[i] = args[k];
+            args[k] = p;
+            ++c[i];
+            i = 1;
+            yield args.slice();
+        } else {
+            c[i] = 0;
+            ++i;
+        }
+    }
+}
+
+/******************* [ Iterators ] *******************/
 
 /**
  * Babel corner case workaround
@@ -145,7 +260,9 @@ function toIterator(generator, indexed = false) {
 
 function iterator(o, {indexed = false, kv = false, metadata = lazy({})} = {}) {
     let iter;
-    if (isGenerator(o)) { // generator only
+    if(isNil(o)) {
+        return empty();
+    } else if (isGenerator(o)) { // generator only
         iter = toIterator(o, indexed);
     } else if (isIterator(o)) { // iterator (generator would have passed)
         iter = indexed ? toIterator(o, indexed) : o;
@@ -160,50 +277,13 @@ function iterator(o, {indexed = false, kv = false, metadata = lazy({})} = {}) {
     return iter;
 }
 
-/**
- * zip generator that works with iterables, iterators and generators
- *
- * Lodash and ramda only support concrete arrays!
- *
- * @param enumerator1: enumerator, i.e. iterable, iterator or generator
- * @param enumerator2: enumerator, i.e. iterable, iterator or generator
- * @param fn: pair transform function of arity 2
- */
-function* zipWithGen(enumerator1, enumerator2, fn = (x1, x2) => [x1, x2]) {
-    let count = 0;
-    enumerator1 = iterator(enumerator1);
-    enumerator2 = iterator(enumerator2);
-    for (const e1 of enumerator1) {
-        const {value: e2, done} = enumerator2.next();
-        if (done) return count;
-        yield fn(e1, e2); // cater for mutable and immutable collections
-        count++;
-    }
-}
-
-const zipWith = (enumerator1, enumerator2, fn) => iterator(zipWithGen(enumerator1, enumerator2, fn));
-const zip = (enumerator1, enumerator2) => zipWith(enumerator1, enumerator2);
-
-function* takeGen(n, enumerator) {
-    let {value, done} = enumerator.next();
-    while (!done && n-- > 0) {
-        yield value;
-        ({value, done} = enumerator.next());
-    }
-}
-
-const take = (n, enumerator) => iterator(takeGen(n, enumerator)); // TODO: implement take as a stateful transformer/transducer for composability
-
-function* skipGen(n, enumerator) {
-    let done = false;
-    while (!done && n-- > 0) {
-        console.log('skipGen::', n);
-        ({done} = enumerator.next());
-    }
-    yield* enumerator;
-}
-
-const skip = (n, enumerator) => iterator(skipGen(n, enumerator)); // TODO: implement take as a stateful transformer/transducer for composability
+const pmatch = o => {
+    // let [[value, key]] = iterator(o, {indexed: true});
+    // let [[value, key]] = o;
+    o = isIterable(o) ? o : [];
+    let [value, key] = o;
+    return {key, value, 0: value, 1: key};
+};
 
 
 function partition(collection, predicate, matchesKey = 'matches', rejectsKey = 'rejects', optional = true) {
@@ -222,39 +302,15 @@ function partition(collection, predicate, matchesKey = 'matches', rejectsKey = '
     return result;
 }
 
-function* partitionBy(fn, data) {
-    const NONE = {};
-    const iter = iterator(data);
-    let buffer = [];
-    let memory = NONE;
-    let lastResult;
-    let newResult;
-    for (const value of iter) {
-        lastResult = memory;
-        newResult = fn(value);
-        memory = newResult;
-        if ((lastResult === NONE) || (lastResult === newResult)) {
-            buffer.push(value);
-        } else {
-            yield iterator(buffer, {metadata: lazy(lastResult)});
-            buffer = [];
-            buffer.push(value);
-        }
-    }
-    if (buffer.length > 0) {
-        yield iterator(buffer, {metadata: lazy(newResult)});
-    }
-}
-
 const sticky = (n, {when = identity, recharge = true} = {}) => fn => {
     let count = 0;
     let result;
     let memory;
     return (...args) => {
         if (!count) { // not repeating
-            result = fn(...args);
+            result = fn(...args); // the function might want to provide one-off stickiness count, via multiple return/out params. Next recharge would fall back to standard `n` argument
             memory = result;
-            count = when(result) === memory ? n - 1 : count;
+            count = when(result) === memory ? n - 1 : count; // currently when answers with a toggle yes/no, x/y, ..., would it need to update stickiness
         } else { // repeating
             if (recharge) {
                 result = fn(...args);
@@ -266,6 +322,8 @@ const sticky = (n, {when = identity, recharge = true} = {}) => fn => {
         return result;
     }
 };
+
+/******************* [ Accessors ] *******************/
 
 /**
  * This is lenses rude cousin, it mutates the path in the document you give it using x.value property get/set
@@ -288,6 +346,8 @@ const accessor = document => (path, {name = 'value', empty = identity} = {}) => 
         return fn(this[name] || this.empty());
     } // pure
 });
+
+/******************* [ Transducers+ ] *******************/
 
 /**
  * Implements reduce for iterables
@@ -379,7 +439,7 @@ const mapcatAsync = fn => composeAsync(mapAsyncTransformer(fn), catAsync);
 
 // update is a transducer fn
 // update:: fn -> acc -> x -> acc
-const update = (reducingFn, {factory = identity} = {}) => (acc, [key, value]) => factory({...acc, [key]: value});
+const update = (reducingFn, {factory = identity} = {}) => (acc, [value, key]) => factory({...acc, [key]: value});
 const mapUpdate = (fn, iterable) => reduce(compose(mapTransformer(fn), update)(/*reducingFn*/), () => ({}), iterable);
 
 /**
@@ -409,6 +469,90 @@ const filterAsync = async (fn, enumerable) => reduceAsync(
     () => [],
     enumerable);
 
+/**
+ * Not yet the full spec of http://ramdajs.com/docs/#into
+ * @param collection
+ * @param transducer
+ * @param enumerable
+ * @returns {*}
+ */
+const into = (container, transducer, enumerable) => {
+    const reindex = xf => reducingFn => (acc, [v, k]) => {
+        // const unpack = reducingFn => (acc, [v, k]) => reducingFn(acc, v);
+        // const repack = reducingFn => (acc, v) => reducingFn(acc, [v, 'k?'])
+        return compose(unpack, xf(identity), repack);
+    };
+    let result;
+    let reducingFn;
+    if (isContainer(container)) {
+        reducingFn = isArray(container) ? append() : update();
+        result = reduce(reindex(transducer)(which(reducingFn)), () => container, iterator(enumerable, {indexed: true}));
+    } else {
+        result = container;
+    }
+    return result;
+};
+
+/**
+ * Implementation of Python's `slice` function... Get a cloned subsequence
+ * of an iterable (collection with length property and array like indexs).
+ * Will handle both strings and array.
+ *
+ * @param {Array|String} collection
+ * @param {None|Integer} start First index to include. If negative it will be indicies from end
+ (i.e. -1 is last item). Omit or pass 0/null/undefined for 0.
+ * @param {None|Integer} end Last index to include. If negative it will be indicies from end
+ (i.e. -1 is last item). Omit or pass null/undefined for end.
+ * @param {None|Intger} step Increments to increase by (non-1 will skip indicies). Negative values
+ will reverse the output.
+ * @returns {Array|String} sliced array
+ *
+ * @example
+ * const list = [1, 2, 3, 4, 5]
+ * slice(list) // => [1, 2, 3, 4, 5]
+ * slice(list, 2) // => [3, 4, 5]
+ * slice(list, 2, 4) // => [3, 4]
+ * slice(list, -2) // => [4, 5]
+ * slice(list, null, -1) // => [1, 2, 3, 4]
+ * slice(list, null, null, 2) // => [1, 3, 5]
+ * slice(list, null, null, -2) // => [5, 3]
+ */
+function slice(list, from, to, step) {
+    if (step === 0) throw Error("Slice step cannot be zero");
+    const isstring = isString(list)
+    if (isstring) {
+        list = list.split("");
+    }
+    const len = list.length;
+    let result = [];
+    const empty = isstring ? "" : [];
+    if (from == null) from = step < 0 ? len : 0;
+    if (to == null) to = step < 0 ? 0 : len;
+    if (!step) {
+        result = list.slice(from, to);
+        return isstring ? result.join("") : result;
+    }
+    // normalize negative values
+    from = from < 0 ? len + from : from;
+    to = to < 0 ? len + to : to;
+    // return empty if extents are backwards
+    if (step > 0 && to <= from) return empty;
+    if (step < 0 && from <= to) return empty;
+    if (from > to) {
+        const _from = from;
+        from = +to + Math.abs(step);
+        to = +_from + Math.abs(step);
+    }
+    // since from, to are normalized, a good old efficient for loop can do the slice and the stepping in one pass with abs(step), negative step reverses the result
+    for (let i = from; i < to; i += Math.abs(step)) {
+        if (i >= len) break;
+        if (i % step === 0) result.push(list[i]);
+    }
+    if (step < 0) result.reverse();
+    // Return a string for input strings otherwise an array
+    return isstring ? result.join('') : result;
+}
+
 module.exports = {
     which,
     peek,
@@ -419,6 +563,7 @@ module.exports = {
     lazy: K,
     always: K,
     constant: K,
+    yrruc,
     flip,
     pipe,
     compose,
@@ -440,12 +585,15 @@ module.exports = {
     iterator,
     toIterator,
     entries,
+    permute,
     // walk,
+    pmatch,
     zipWith,
     zip,
     take,
     skip,
     partition,
+    slice,
     partitionBy,
     flatten,
     sticky,
@@ -465,6 +613,7 @@ module.exports = {
     mapUpdate,
     reduce,
     reduceAsync,
+    into,
     mapTransformer,
     mapAsyncTransformer,
     map,
