@@ -60,24 +60,34 @@ function* tokenGenerator(regex, str, {sequence = false} = {}) {
     } while (multi && (matches = regex.exec(str)) !== null && (matches.index !== lastIndex)) // avoid infinite loop if the regex (by design) matches empty string, exec would keep on returning the same match over and over
 }
 
-function tokenize(regex, str, {tokenNames = [], $n = true, sequence = false} = {}) {
+function tokenize(regex, str, {tokenNames = [], $n = true, destructring = true, sequence = false} = {}) {
     if (sequence) {
         // interpolation, find all placeholders with the intention of later replacement, a placeholder might repeat, and there is no notion of $1 $2 as specific capture groups
         const tokenIter = coll.iterator(tokenGenerator(regex, str, {sequence}), {indexed: true});
         return coll.reduce((acc, [{match, token}, index]) => {
             if (token == null) return acc;
+            // since index shift, lookup of aliases is not straight forward unless matched pattern is known upfront
             const key = tokenNames[index] || ($n ? `$${index + 1}` : match);
             acc[key] = acc[key] ? [...acc[key], token] : $n ? token : [token];
             return acc;
         }, () => ({}), tokenIter);
-    } else {
-        // capture group oriented tokenization
+    } else if (destructring) {
+        /**
+         * capture groups oriented tokenization, with repeated multi-capture-group regex
+         * with n slots (capture groups)
+         * 1st match would be [cg1, undefined, undefined, ...]
+         * 3nd match would be [undefined, undefined, cg3, ...]
+         * ...
+         * nth match would be [undefined, undefined, undefined, ..., cgn]
+         **/
+
         const tokenIter = coll.iterator(tokenGenerator(regex, str));
         return coll.reduce((acc, matches) => {
             for (const [index, token] of matches.entries()) {
                 if (token == null) continue;
                 const key = tokenNames[index] || `$${index + 1}`;
-                acc[key] = token;
+                // acc[key] = token;
+                acc[key] = acc[key] ? $n ? token : [...acc[key], token] : $n ? token : [token];
             }
             return acc;
         }, () => ({}), tokenIter);

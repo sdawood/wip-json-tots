@@ -210,6 +210,8 @@ describe('tokenize', () => {
         ];
 
         const opCombinations = [
+            ['', {}],
+
             // INCEPTION
             ['..', {$1: '..'}],
             ['...', {$1: '...'}],
@@ -225,6 +227,9 @@ describe('tokenize', () => {
             ['**', {$2: '**'}],
             // BINDING/SYMBOL
             [' : ', {$3: ':'}],
+            [' #123_foo_bar ', {$3: '#123_foo_bar'}],
+            // QUERY MODIFIERS
+            [' + ', {$4: '+'}],
             // COMBINATIONS
             ['.. | *', {$1: '..', $2: '*'}],
             ['.1 | *', {$1: '.1', $2: '*'}],
@@ -232,24 +237,109 @@ describe('tokenize', () => {
             ['.. | **', {$1: '..', $2: '**'}],
             ['.1 | **', {$1: '.1', $2: '**'}],
             ['.10 | **', {$1: '.10', $2: '**'}],
+
             ['.. | * | : ', {$1: '..', $2: '*', $3: ':'}],
             ['.1 | * | : ', {$1: '.1', $2: '*', $3: ':'}],
             ['.10 | * | : ', {$1: '.10', $2: '*', $3: ':'}],
             ['.. | ** | : ', {$1: '..', $2: '**', $3: ':'}],
             ['.1 | ** | : ', {$1: '.1', $2: '**', $3: ':'}],
-            ['.10 | ** | : ', {$1: '.10', $2: '**', $3: ':'}]
+            ['.10 | ** | : ', {$1: '.10', $2: '**', $3: ':'}],
+
+            ['.. | * | : ', {$1: '..', $2: '*', $3: ':'}],
+            ['.1 | * | : ', {$1: '.1', $2: '*', $3: ':'}],
+            ['.10 | * | : ', {$1: '.10', $2: '*', $3: ':'}],
+            ['.. | ** | : ', {$1: '..', $2: '**', $3: ':'}],
+            ['.1 | ** | : ', {$1: '.1', $2: '**', $3: ':'}],
+            ['.10 | ** | : ', {$1: '.10', $2: '**', $3: ':'}],
+
+            ['.. | * | : | + ', {$1: '..', $2: '*', $3: ':', $4: '+'}],
+            ['.1 | * | : | + ', {$1: '.1', $2: '*', $3: ':', $4: '+'}],
+            ['.10 | * | : | + ', {$1: '.10', $2: '*', $3: ':', $4: '+'}],
+            ['.. | ** | : | + ', {$1: '..', $2: '**', $3: ':', $4: '+'}],
+            ['.1 | ** | : | + ', {$1: '.1', $2: '**', $3: ':', $4: '+'}],
+            ['.10 | ** | : | + ', {$1: '.10', $2: '**', $3: ':', $4: '+'}],
+
+            ['.. | * |#123_foo_bar | + ', {$1: '..', $2: '*', $3: '#123_foo_bar', $4: '+'}],
+            ['.1 | * |#123_foo_bar | + ', {$1: '.1', $2: '*', $3: '#123_foo_bar', $4: '+'}],
+            ['.10 | * |#123_foo_bar | + ', {$1: '.10', $2: '*', $3: '#123_foo_bar', $4: '+'}],
+            ['.. | ** |#123_foo_bar | + ', {$1: '..', $2: '**', $3: '#123_foo_bar', $4: '+'}],
+            ['.1 | ** |#123_foo_bar | + ', {$1: '.1', $2: '**', $3: '#123_foo_bar', $4: '+'}],
+            ['.10 | ** |#123_foo_bar | + ', {$1: '.10', $2: '**', $3: '#123_foo_bar', $4: '+'}]
         ];
-        const opsOOOCombinations = [
+        const opOOOCombinations = [
             // OUT OF ORDER COMBINATIONS
             [' * | .. ', {$1: '..', $2: '*'}],
             [' * | .1 ', {$1: '.1', $2: '*'}],
             [' ** | .. ', {$1: '..', $2: '**'}],
             [' ** | .1 ', {$1: '.1', $2: '**'}],
+
             [' : | .. ', {$1: '..', $3: ':'}],
             [' : | * ', {$2: '*', $3: ':'}],
             [' : | ** ', {$2: '**', $3: ':'}],
-            [' : | .1 ', {$1: '.1', $3: ':'}]
+            [' : | .1 ', {$1: '.1', $3: ':'}],
+
+            [' + | .1 ', {$1: '.1', $4: '+'}],
+            [' + | * ', {$2: '*', $4: '+'}],
+
+            [' #123_foo_bar | .. ', {$1: '..', $3: '#123_foo_bar'}],
+            [' #123_foo_bar | * ', {$2: '*', $3: '#123_foo_bar'}],
+            [' #123_foo_bar | ** ', {$2: '**', $3: '#123_foo_bar'}],
+            [' #123_foo_bar | .1 ', {$1: '.1', $3: '#123_foo_bar'}],
+
+            [' #123_foo_bar | + | ** ', {$2: '**', $3: '#123_foo_bar', $4: '+'}],
+            [' #123_foo_bar | + | .1 ', {$1: '.1', $3: '#123_foo_bar', $4: '+'}]
         ];
+
+        const pipeCombinations = [
+            // ['', {$1: ''}], // TODO: the regex is forgiving capturing ''!
+            ['', {}], // TODO: the regex is forgiving capturing ''!
+            // FLATTEN/EXPAND
+            [' | *', {$1: '*'}],
+            [' | **', {$1: '**'}],
+            // FUNCTIONS
+            [' | async ', {$1: 'async'}],
+            [' | foo | async ', {$1: 'foo', $2: 'async'}],
+            [' | foo | bar | async ', {$1: 'foo', $2: 'bar', $3: 'async'}],
+            // VALID COMBINATION
+            [' | * | async ', {$1: '*', $2: 'async'}],
+            [' | * | foo | async ', {$1: '*', $2: 'foo', $3: 'async'}],
+            [' | * | foo | bar | async ', {$1: '*', $2: 'foo', $3: 'bar', $4: 'async'}],
+            // WITH ARGS
+            [' | * | async : 1 : 2', {$1: '*', $2: 'async : 1 : 2'}],
+            [' | * | async | foo : hello : world | bar', {$1: '*', $2: 'async', $3: 'foo : hello : world', $4: 'bar'}],
+            [' | async | slice::5:-1 | foo | bar | **:-1', {
+                $1: 'async',
+                $2: 'slice::5:-1',
+                $3: 'foo',
+                $4: 'bar',
+                $5: '**:-1'
+            }],
+            ['| async | slice::5:-1 | foo | bar | **:4:__:options', {
+                $1: 'async',
+                $2: 'slice::5:-1',
+                $3: 'foo',
+                $4: 'bar',
+                $5: '**:4:__:options'
+            }]
+        ];
+        const pipeOOOCombinations = [
+            // only lexical order matter
+            [' | async | * ', {$1: 'async', $2: '*'}],
+            [' | foo | async | * ', {$1: 'foo', $2: 'async', $3: '*'}],
+            [' | foo | bar | async | * ', {$1: 'foo', $2: 'bar', $3: 'async', $4: '*'}],
+
+            // drops invalids
+            [' * | async ', {$1: 'async'}], // * not prefixed by a pipe is ignored
+            [' | * | foo async:100 ', {$1: '*', $2: 'foo'}], // async not prefixed by a pipe is ignored
+            [' * | foo:1 | bar:1  async ', {$1: 'foo:1', $2: 'bar:1'}],
+            [' async | * ', {$1: '*'}],
+            [' foo | async:100 | * ', {$1: 'async:100', $2: '*'}],
+            [' foo | bar | async | * ', {$1: 'bar', $2: 'async', $3: '*'}],
+
+
+        ];
+
+
         it('captures ops, path and pipes into $n capture groups', () => {
             const regex = /{(.*?){(.*?)}(.*?)}/g;
             const text = '{op{x.y.z}pipes}';
@@ -263,15 +353,16 @@ describe('tokenize', () => {
         });
         describe('captures all operations respecting allowed order', () => {
             // https://regex101.com/r/dMUYpQ/7
-            const opregex = /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:)?\s*/g;
-            // const opregex = /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:)?\s*/;
-            const tokenNames = ['inception', 'enumerate', 'symbol'];
-            const lookup = {$1: tokenNames[0], $2: tokenNames[1], $3: tokenNames[2]};
-            const alias = ({$1, $2, $3}) => {
+            const opregex = /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#\w*)?\s*\|?\s*(\+)?\s*/g; // with forgiving names for tags, e.g. 123_foo_bar
+            // const opregex = /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#[a-zA-Z_]\w*)?\s*/g; // with valid identifier names for tags
+            const tokenNames = ['inception', 'enumerate', 'symbol', 'query'];
+            const lookup = {$1: tokenNames[0], $2: tokenNames[1], $3: tokenNames[2], $4: tokenNames[3]};
+            const alias = ({$1, $2, $3, $4}) => {
                 const expected = {};
                 if ($1) expected[lookup['$1']] = $1;
                 if ($2) expected[lookup['$2']] = $2;
                 if ($3) expected[lookup['$3']] = $3;
+                if ($4) expected[lookup['$4']] = $4;
                 return expected;
             };
 
@@ -281,7 +372,7 @@ describe('tokenize', () => {
                 }
             });
             it('#2 handles out of order combinations', () => {
-                for (const [ops, expected] of opsOOOCombinations) {
+                for (const [ops, expected] of opOOOCombinations) {
                     expect(strings.tokenize(opregex, ops)).toEqual(expected);
                 }
             });
@@ -289,9 +380,153 @@ describe('tokenize', () => {
                 for (const [ops, expected] of opCombinations) {
                     expect(strings.tokenize(opregex, ops, {tokenNames})).toEqual(alias(expected));
                 }
-                for (const [ops, expected] of opsOOOCombinations) {
+                for (const [ops, expected] of opOOOCombinations) {
                     expect(strings.tokenize(opregex, ops, {tokenNames})).toEqual(alias(expected));
                 }
+            });
+        });
+
+        describe('captures all pipes along with optional arguments', () => {
+            /** since RegExp capture groups won't help tokenizing repeated cgs, since it throws away everything but the last one
+             * a viable alternative is to use the sequencing logic of tokenize(<global-regex>), where every match iteration extracts one pipe[:arg]*
+             * https://regex101.com/r/n2qnj7/4/
+             **/
+
+            const onepiperegex = /(?:\s*\|\s*)((?:\w+|\*{1,2})(?:\s*\:\s*[a-zA-Z0-9_-]*)*)/g; // every sequenced match is a single pipe[:param]*
+            // https://regex101.com/r/ZpJLOR/1/
+            // const pipesregex = /((?:\s*\|?\s*(?:\w+|\*{1,2})(?:\s*\:\s*[a-zA-Z0-9_-]*)*)*)/g; // unified * with fn-names
+            const tokenNames = ['pipe'];
+            const lookup = {$1: tokenNames[0]};
+            const alias = ({$1}) => {
+                const expected = {};
+                if ($1) expected[lookup['$1']] = $1;
+                return expected;
+            };
+
+            it('#1 captures pipes', () => {
+                for (const [pipes, expected] of pipeCombinations) {
+                    expect(strings.tokenize(onepiperegex, pipes, {$n: true, sequence: true})).toEqual(expected);
+                }
+            });
+            it('#2 handles out of order combinations', () => {
+                for (const [pipes, expected] of pipeOOOCombinations) {
+                    expect(strings.tokenize(onepiperegex, pipes, {$n: true, sequence: true})).toEqual(expected);
+                }
+            });
+            it('#3 aliases capture groups with supplied names, positions assumed to be known upfront and aliasing is non-deterministic', () => {
+                const knownNames = ['@', '[::]', '(foo)', '(bar)', '**'];
+                const knownPositions = [
+                    // $n is ignored if tokenNames[index] exists
+                    [' | async | slice::5:-1 | foo | bar | **:-1', {
+                        "(bar)": "bar",
+                        "(foo)": "foo",
+                        "**": "**:-1",
+                        "@": "async",
+                        "[::]": "slice::5:-1"
+                    }],
+                    // indexes shift, tokenNames are consumed by an unintended match, also $n kicks in if no alias exists
+                    [' | async | slice::5:-1 | foo | async | bar | **:-1', {
+                        "$6": "**:-1",
+                        "(bar)": "async",
+                        "(foo)": "foo",
+                        "**": "bar",
+                        "@": "async",
+                        "[::]": "slice::5:-1"
+                    }]
+                ];
+                for (const [pipes, expected] of knownPositions) {
+                    expect(strings.tokenize(onepiperegex, pipes, {
+                        $n: true,
+                        sequence: true,
+                        tokenNames: knownNames
+                    })).toEqual(expected);
+                }
+            });
+            describe('#showcase handles pattern-match (or destructuring) / interpolation (sequence) / repeating capture-groups (sequence) modes', () => {
+                describe('muti-capture group, non-repeating', () => {
+                    // expect(strings.tokenize(onepiperegex, example, {$n: false, sequence: false, destructring: false})).toEqual(
+                    //     {}
+                    // );
+                    it('destructure matches into partitions by capture-group number', () => {
+                        expect(strings.tokenize(
+                            /((?:\d+)|(?:[a-z]+))-?((?:\d+)|(?:[a-z]+))/g
+                            , 'a-10-100-b'
+                            , {$n: false, sequence: false, destructring: true})).toEqual(
+                            {"$1": ["a", "100"], "$2": ["10", "b"]}
+                        );
+                    });
+                    it('destructure matches and only remember the last match', () => {
+                        expect(strings.tokenize(
+                            /((?:\d+)|(?:[a-z]+))-?((?:\d+)|(?:[a-z]+))/g
+                            , 'a-10-100-b'
+                            , {$n: true, sequence: false, destructring: true})).toEqual(
+                            {"$1": "100", "$2": "b"}
+                        );
+                    });
+                    it('sequences matches into partitions indexed by the full-match', () => {
+                        expect(strings.tokenize(
+                            /((?:\d+)|(?:[a-z]+))-?((?:\d+)|(?:[a-z]+))/g
+                            , 'a-10-100-b'
+                            , {$n: false, sequence: true, destructring: false})).toEqual(
+                            {"100-b": ["100", "b"], "a-10": ["a", "10"]}
+                        );
+                    });
+                    it('sequences matches indexed by sequential counter', () => {
+                        expect(strings.tokenize(
+                            /((?:\d+)|(?:[a-z]+))-?((?:\d+)|(?:[a-z]+))/g
+                            , 'a-10-100-b'
+                            , {$n: true, sequence: true, destructring: false})).toEqual(
+                            {"$1": "a", "$2": "10", "$3": "100", "$4": "b"}
+                        );
+                    });
+                });
+                describe('repeating capture group', () => {
+                    const example = ' | async | slice::5:-1 | foo | async | bar | **:-1';
+                    // interpolation
+                    it('sequences matches into partitions indexed by the full-match', () => {
+                        expect(strings.tokenize(onepiperegex, example, {
+                            $n: false,
+                            sequence: true,
+                            destructring: false
+                        })).toEqual(
+                            {
+                                " | **:-1": ["**:-1"],
+                                " | async": ["async", "async"],
+                                " | bar": ["bar"],
+                                " | foo": ["foo"],
+                                " | slice::5:-1": ["slice::5:-1"]
+                            }
+                        );
+                    });
+                    it('sequences matches indexed by sequential counter', () => {
+                        // sequence (repeated capture groups)
+                        expect(strings.tokenize(onepiperegex, example, {
+                            $n: true,
+                            sequence: true,
+                            destructring: false
+                        })).toEqual(
+                            {"$1": "async", "$2": "slice::5:-1", "$3": "foo", "$4": "async", "$5": "bar", "$6": "**:-1"}
+                        );
+                    });
+                    it('destructure matches into partitions by capture-group number', () => {
+                        expect(strings.tokenize(onepiperegex, example, {
+                            $n: false,
+                            sequence: false,
+                            destructring: true
+                        })).toEqual(
+                            {"$1": ["async", "slice::5:-1", "foo", "async", "bar", "**:-1"]}
+                        );
+                    });
+                    it('destructure matches and only remember the last match', () => {
+                        expect(strings.tokenize(onepiperegex, example, {
+                            $n: true,
+                            sequence: false,
+                            destructring: true
+                        })).toEqual(
+                            {"$1": "**:-1"}
+                        );
+                    });
+                });
             });
         });
     });
