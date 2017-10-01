@@ -26,6 +26,20 @@ const peek = x => {
     return x;
 };
 
+const __ = {'@@functional/placeholder': true};
+const _is__ = a => a != null && typeof a === 'object' && a['@@functional/placeholder'] === true;
+
+const withOneSlot = fn => (...args) => {
+    const slots = args.reduce((acc, a, index) => {
+        if (_is__(a)) acc['__1'] = index;
+        return acc;
+    }, {});
+    return (coin) => {
+        args[slots['__1']] = coin;
+        return fn(...args)
+    };
+};
+
 /**
  * Functional building blocks with zero dependencies
  * identity, pipe, compose, empty, append, map, filter, reduce, transformers, transducers
@@ -556,6 +570,9 @@ function slice(list, from, to, step) {
 module.exports = {
     which,
     peek,
+    __,
+    withOneSlot,
+    oneslot: withOneSlot,
     empty,
     identity,
     identityAsync,

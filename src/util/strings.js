@@ -1,3 +1,5 @@
+const jp = require('jsonpath');
+
 const coll = require('../core/collections');
 
 module.exports = {
@@ -52,7 +54,8 @@ function* tokenGenerator(regex, str, {sequence = false} = {}) {
         const match = matches.shift();
         // yield* matches/*.filter(token => !!token)*/.map(token => ({match, token})); // if we filter out undefined capture groups when the regex matches empty string we shift capture group identifiers!
         if (sequence) { // WARNING: only use to get sequences of matches for interpolation purposes, don't use for strict capture group tokenization, capture group names/indexes might shift up
-            yield* matches.map(token => ({match, token}));
+            // TODO: this iterator can use nested aggregation groupBy :: (match, cgindex) -> {x: [[cgi00, cgi01], [cgi10, cgi11]]}
+            yield* matches.map((token, index) => ({match, token, cgi: index + 1}));
         } else {
             yield matches;
         }
@@ -60,19 +63,60 @@ function* tokenGenerator(regex, str, {sequence = false} = {}) {
     } while (multi && (matches = regex.exec(str)) !== null && (matches.index !== lastIndex)) // avoid infinite loop if the regex (by design) matches empty string, exec would keep on returning the same match over and over
 }
 
-function tokenize(regex, str, {tokenNames = [], $n = true, destructring = true, sequence = false} = {}) {
+/**
+ *
+ * @param regex
+ * @param str
+ * @param tokenNames
+ * @param $n
+ * @param cgindex: capture group index
+ * @param sequence
+ * @returns {*}
+ */
+function tokenize(regex, str, {tokenNames = [], $n = true, cgindex = false, cgi0 = false, sequence = false} = {}) {
     if (sequence) {
         // interpolation, find all placeholders with the intention of later replacement, a placeholder might repeat, and there is no notion of $1 $2 as specific capture groups
         const tokenIter = coll.iterator(tokenGenerator(regex, str, {sequence}), {indexed: true});
-        return coll.reduce((acc, [{match, token}, index]) => {
-            if (token == null) return acc;
+        return coll.reduce((acc, [{match, token, cgi}, index]) => {
+            if (!cgindex && token == null) return acc;
+            cgi = cgi0 ? cgi - 1 : cgi;
             // since index shift, lookup of aliases is not straight forward unless matched pattern is known upfront
-            const key = tokenNames[index] || ($n ? `$${index + 1}` : match);
-            acc[key] = acc[key] ? [...acc[key], token] : $n ? token : [token];
+
+            const key = tokenNames[cgindex ? cgi : index] || ($n ? `$${(cgindex ? cgi : index + 1)}` : match);
+
+            const incremental = $n && !cgindex;
+            const groupByMatch = !$n;
+            const groupByCgi = groupByMatch && cgindex;
+
+            // effectively performing a double group by (match) (cgindex)
+            if(acc[key]) {
+                if (groupByCgi) {
+                    if (acc[key][cgi]) {
+                        acc[key][cgi] = [...acc[key][cgi], token]
+                    } else {
+                        acc[key][cgi] = [token];
+                    }
+                } else if (groupByMatch) {
+                    acc[key] = [...acc[key], token];
+                } else if ($n) {
+                    acc[key] = token;
+                } else {
+                    throw new Error('WARNING: overwriting previous match');
+                }
+            } else {
+                if (groupByCgi) {
+                    acc[key] = []; acc[key][cgi] = [token];
+                } else if (groupByMatch) {
+                    acc[key] = [token]
+                } else /*if ($n)*/ {
+                    acc[key] = token;
+                }
+            }
             return acc;
         }, () => ({}), tokenIter);
-    } else if (destructring) {
+    } else {
         /**
+         * currently this mode doesn't have the source (full-match)
          * capture groups oriented tokenization, with repeated multi-capture-group regex
          * with n slots (capture groups)
          * 1st match would be [cg1, undefined, undefined, ...]

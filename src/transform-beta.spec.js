@@ -7,11 +7,11 @@ const {transform} = require('./transform-beta');
 const original = Object.freeze({
     id: 123,
     title: 'Bicycle 123',
-    description: '123 description',
+    description: 'Bicycle 123 is a fabulous item that you have to spend all your money on',
     bicycleType: 'Hybrid',
     brand: 'Brand-Company C',
     price: 500,
-    color: ['Red', 'Black'],
+    color: ['Red', 'Black', 'White'],
     productCategory: 'Bicycle',
     inStok: true,
     quantityOnHand: null,
@@ -21,8 +21,8 @@ const original = Object.freeze({
         seasonal: {author: 'anonymousUser2', timestamp: '2017MMDDHHmmssSSS'},
         personalTransportation: {author: 'memberUser3', timestamp: '2015MMDDHHmmssSSS'},
         'tag-name-with-dash': {author: 'memberUser4', timestamp: '2015MMDDHHmmssSSS'},
-        'tag name with spaces': {author: 'memberUser4', timestamp: '2015MMDDHHmmssSSS'},
-        'tag.name.with.dots': {author: 'memberUser4', timestamp: '2015MMDDHHmmssSSS'},
+        'tag name with spaces': {author: 'memberUser5', timestamp: '2015MMDDHHmmssSSS'},
+        'tag.name.with.dots': {author: 'memberUser6', timestamp: '2015MMDDHHmmssSSS'},
     },
     pictures: [
         {
@@ -70,12 +70,12 @@ const original = Object.freeze({
 });
 
 describe('transform', () => {
-    describe('deref-jsonpath:: meta-0 simple interpolation', () => {
+    describe.only('deref-jsonpath:: meta-0/1 simple interpolation', () => {
         const template = {
             name: '{{title}} [{{description}}] http://items/{{title}}',
             reviews: {
                 eula: 'read and agree and let us get on with it',
-                high: '{{productReview.fiveStar[0].comment}}', // <- this is an arbitrary javascript property access expression, evaluated as `new Function('data', 'return data.' + ref + ';')(data)`;
+                high: '{{productReview.fiveStar[0].comment}}',
                 low: '{{productReview.oneStar[0].comment}}',
                 disclaimer: 'Ad: {{comment}}'
             },

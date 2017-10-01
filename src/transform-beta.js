@@ -10,21 +10,78 @@ const regex = {
 };
 
 const operator = {
-    plus: '+',
-    flatten: '*',
-    spread: /../,
-    spreadN: /\.\d+/,
-    kv: /:/
+    inception: [/\.{2,}/, /\.\d{1,3}/],
+    enumerate: [/\*{1,2}/],
+    symbol: [/:/, /#\w+/],
+    query: /\+/,
+};
+
+const builtinPipes = {
+    '*': coll.flatten,
+    '**': coll.iterator // {indexed: true, kv: true, metadata = () => path}
 };
 
 const placeholder = {
-    // https://regex101.com/r/dMUYpQ/1
-    // "{" oneOrMoare | expand(n) = [.... | .n ] "{" path "}" pipe(...fns) | spread "}"
-    open: '{\\s*(\\+?|\\.{2,}?|\\.\\d+?)\\s*{',
-    close: '}\\s*((\\*|\\|\\s*\\w+\\s*)*)\\s*}'
+    full: /{([^{]*?)?{(.*?)}([^}]*)?}/g,
+    operators: /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#\w+)?\s*\|?\s*(\+)?\s*/g, // https://regex101.com/r/dMUYpQ/7
+    operatorNames: ['inception', 'enumerate', 'symbol', 'query'],
+    pipes: /(?:\s*\|\s*)((?:\w+|\*{1,2})(?:\s*\:\s*[a-zA-Z0-9_-]*)*)/g // https://regex101.com/r/n2qnj7/4/
 };
+
 const rejectPlaceHolder = {open: '{>>{', close: '}<<}'};
-const reph = (ph = placeholder) => new RegExp(`${ph.open}(.*?)${ph.close}`, 'g'); // regex place holder, a.k.a reph
+
+/**
+ * regex place holder, a.k.a reph tokenizer
+ *
+ * NOTE: the source placeholder can be repeated within the template-string, e.g. "{{x.y}} = {{x.y}}"
+ * reph() would consume one only, effectively optimizing by removing the need to deref twice within the same scope
+ * later when the dereffed value is replaced in the string, a //g regex is used and would cover all identical occurrences
+ *
+ * @param source
+ * @param operators
+ * @param path
+ * @param pipes
+ * @param meta
+ * @returns {*}
+ */
+const reph = ([source, [[operators] = [], [path] = [], [pipes] = []] = []] = [], meta = 0) => {
+    let ast = {source, value: null, reduced: false, '@meta': meta};
+
+    if (coll.isEmptyValue(path)) {
+        ast.value = source;
+        ast.reduced = true;
+        return ast;
+    }
+
+    ast['@meta'] = 1;
+
+    if (operators) {
+        operators = sx.tokenize(placeholder.operators, operators, {tokenNames: placeholder.operatorNames});
+        operators['@meta'] = 2;
+        ast.operators = operators;
+    }
+
+    if (pipes) {
+        pipes = sx.tokenize(placeholder.pipes, pipes, {sequence: true});
+        pipes['@meta'] = 3;
+        ast.pipes = pipes;
+    }
+    return {...ast, path};
+};
+
+const rephs = (text, meta = 0) => {
+    let ast = {source: text, value: null, reduced: false, '@meta': meta};
+    const regex = new RegExp(placeholder.full.source, 'g');
+    const matches = sx.tokenize(regex, text, {$n: false, sequence: true, cgindex: true, cgi0: true});
+
+    if (coll.isEmptyValue(matches)) {
+        ast.value = text;
+        ast.reduced = true;
+        return ast;
+    }
+
+    return coll.map(coll.which(reph), coll.iterator(matches, {indexed: true, kv: true}));
+};
 
 const builtins = {
     defaultTo: (defaultValue, value) => coll.isEmptyValue(value) ? defaultValue : value,
@@ -49,7 +106,7 @@ const derefFrom = document => (ref, rph = rejectPlaceHolder) => {
     return [key, value];
 };
 
-function XrenderString(node, phValuePairs) {
+function renderString(node, phValuePairs) {
     let rendered;
     if (phValuePairs.length === 1 && phValuePairs[0][0] === node) {
         rendered = phValuePairs[0][1]; // stand alone '{{path}}' expands to value, without toString conversion
@@ -72,7 +129,7 @@ function XexpandStringNode(node) {
     return rendered;
 }
 
-function XrenderStringNode(node, deref) {
+function renderStringNode(node, deref) {
     const refs = sx.tokenize(reph(), node, [], false);
     let rendered;
     if (coll.isEmptyValue(refs)) {
@@ -85,7 +142,7 @@ function XrenderStringNode(node, deref) {
 }
 
 const XhasSpreadOperator = element => {
-    if (coll.isString(element)) {
+    if (coll.isString(element)) {renderStringNode
         const refs = sx.tokenize(reph(), element, [], false);
         if (coll.isEmptyValue(refs)) {
             return false;
@@ -126,7 +183,7 @@ function XrenderArrayNode(node, deref) {
 
 const renderObjectNode = coll.identity;
 
-function transform(template, document) {
+function transform(template, document, meta = 0) {
     let counter = 1;
     const deref = derefFrom(document);
     let result;
@@ -140,7 +197,7 @@ function transform(template, document) {
             if (coll.isFunction(node)) {
                 this.update(node(document)); // R.applySpec style, discouraged since it is not declarative or serializable
             } else if (coll.isString(node)) {
-                this.update(renderStringNode(node, deref));
+                this.update((node, deref));
             } else if (coll.isArray(node)) {
                 this.update(renderArrayNode(node, deref));
             } else {
@@ -152,5 +209,6 @@ function transform(template, document) {
 }
 
 module.exports = {
-    transform
+    transform,
+    rephs,
 };

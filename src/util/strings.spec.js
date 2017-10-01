@@ -353,7 +353,7 @@ describe('tokenize', () => {
         });
         describe('captures all operations respecting allowed order', () => {
             // https://regex101.com/r/dMUYpQ/7
-            const opregex = /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#\w*)?\s*\|?\s*(\+)?\s*/g; // with forgiving names for tags, e.g. 123_foo_bar
+            const opregex = /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#\w+)?\s*\|?\s*(\+)?\s*/g; // with forgiving names for tags, e.g. 123_foo_bar
             // const opregex = /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#[a-zA-Z_]\w*)?\s*/g; // with valid identifier names for tags
             const tokenNames = ['inception', 'enumerate', 'symbol', 'query'];
             const lookup = {$1: tokenNames[0], $2: tokenNames[1], $3: tokenNames[2], $4: tokenNames[3]};
@@ -392,6 +392,7 @@ describe('tokenize', () => {
              * https://regex101.com/r/n2qnj7/4/
              **/
 
+            // https://regex101.com/r/n2qnj7/4/
             const onepiperegex = /(?:\s*\|\s*)((?:\w+|\*{1,2})(?:\s*\:\s*[a-zA-Z0-9_-]*)*)/g; // every sequenced match is a single pipe[:param]*
             // https://regex101.com/r/ZpJLOR/1/
             // const pipesregex = /((?:\s*\|?\s*(?:\w+|\*{1,2})(?:\s*\:\s*[a-zA-Z0-9_-]*)*)*)/g; // unified * with fn-names
@@ -444,14 +445,14 @@ describe('tokenize', () => {
             });
             describe('#showcase handles pattern-match (or destructuring) / interpolation (sequence) / repeating capture-groups (sequence) modes', () => {
                 describe('muti-capture group, non-repeating', () => {
-                    // expect(strings.tokenize(onepiperegex, example, {$n: false, sequence: false, destructring: false})).toEqual(
+                    // expect(strings.tokenize(onepiperegex, example, {$n: false, sequence: false, cgindex: false})).toEqual(
                     //     {}
                     // );
                     it('destructure matches into partitions by capture-group number', () => {
                         expect(strings.tokenize(
                             /((?:\d+)|(?:[a-z]+))-?((?:\d+)|(?:[a-z]+))/g
                             , 'a-10-100-b'
-                            , {$n: false, sequence: false, destructring: true})).toEqual(
+                            , {$n: false, sequence: false, cgindex: true})).toEqual(
                             {"$1": ["a", "100"], "$2": ["10", "b"]}
                         );
                     });
@@ -459,7 +460,7 @@ describe('tokenize', () => {
                         expect(strings.tokenize(
                             /((?:\d+)|(?:[a-z]+))-?((?:\d+)|(?:[a-z]+))/g
                             , 'a-10-100-b'
-                            , {$n: true, sequence: false, destructring: true})).toEqual(
+                            , {$n: true, sequence: false, cgindex: true})).toEqual(
                             {"$1": "100", "$2": "b"}
                         );
                     });
@@ -467,7 +468,7 @@ describe('tokenize', () => {
                         expect(strings.tokenize(
                             /((?:\d+)|(?:[a-z]+))-?((?:\d+)|(?:[a-z]+))/g
                             , 'a-10-100-b'
-                            , {$n: false, sequence: true, destructring: false})).toEqual(
+                            , {$n: false, sequence: true, cgindex: false})).toEqual(
                             {"100-b": ["100", "b"], "a-10": ["a", "10"]}
                         );
                     });
@@ -475,7 +476,7 @@ describe('tokenize', () => {
                         expect(strings.tokenize(
                             /((?:\d+)|(?:[a-z]+))-?((?:\d+)|(?:[a-z]+))/g
                             , 'a-10-100-b'
-                            , {$n: true, sequence: true, destructring: false})).toEqual(
+                            , {$n: true, sequence: true, cgindex: false})).toEqual(
                             {"$1": "a", "$2": "10", "$3": "100", "$4": "b"}
                         );
                     });
@@ -487,7 +488,7 @@ describe('tokenize', () => {
                         expect(strings.tokenize(onepiperegex, example, {
                             $n: false,
                             sequence: true,
-                            destructring: false
+                            cgindex: false
                         })).toEqual(
                             {
                                 " | **:-1": ["**:-1"],
@@ -503,7 +504,7 @@ describe('tokenize', () => {
                         expect(strings.tokenize(onepiperegex, example, {
                             $n: true,
                             sequence: true,
-                            destructring: false
+                            cgindex: false
                         })).toEqual(
                             {"$1": "async", "$2": "slice::5:-1", "$3": "foo", "$4": "async", "$5": "bar", "$6": "**:-1"}
                         );
@@ -512,7 +513,7 @@ describe('tokenize', () => {
                         expect(strings.tokenize(onepiperegex, example, {
                             $n: false,
                             sequence: false,
-                            destructring: true
+                            cgindex: true
                         })).toEqual(
                             {"$1": ["async", "slice::5:-1", "foo", "async", "bar", "**:-1"]}
                         );
@@ -521,7 +522,7 @@ describe('tokenize', () => {
                         expect(strings.tokenize(onepiperegex, example, {
                             $n: true,
                             sequence: false,
-                            destructring: true
+                            cgindex: true
                         })).toEqual(
                             {"$1": "**:-1"}
                         );
