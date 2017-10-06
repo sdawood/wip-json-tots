@@ -70,7 +70,71 @@ const original = Object.freeze({
 });
 
 describe('transform', () => {
-    describe.only('deref-jsonpath:: meta-0/1 simple interpolation', () => {
+    describe.only('deref-jsonpath:: meta-0/1 simple interpolation with query modifiers', () => {
+        const template = {
+            name: '{{title}} [{{description}}] http://items/{{title}}',
+            reviews: {
+                eula: 'read and agree and let us get on with it',
+                high: '{{productReview.fiveStar[0].comment}}',
+                low: '{{productReview.oneStar[0].comment}}',
+                disclaimer: 'Ad: {{comment}}',
+                version: 10,
+                details: null,
+                active: true
+            },
+            safety: '{{["Safety.Warning.On.Root"]}}',
+            topRaters:['{{productReview.fiveStar[0]["first.name"]}}', '{{productReview.fiveStar[1]["first.name"]}}', '{{productReview.oneStar[0]["first.name"]}}', 10, null, true],
+            topTaggers: '{{tags["tag-name-with-dash"].author}} - {{tags["tag name with spaces"].author}} - {{tags["tag.name.with.dots"].author}}',
+            oneScore: '{{productReview..score}}', // <- * means get exactly one search results. The value is substituted as is unless the place holder is a part of a bigger string, in that case it is replaced into the string template
+            users: '{{..author}}',
+            version: 10,
+            details: null,
+            active: true
+        };
+
+        const expectedResult = {
+            name: `${original.title} [${original.description}] http://items/${original.title}`,
+            reviews: {
+                eula: 'read and agree and let us get on with it',
+                high: original.productReview.fiveStar[0].comment,
+                low: original.productReview.oneStar[0].comment,
+                disclaimer: `Ad: ${original.comment}`,
+                version: 10,
+                details: null,
+                active: true
+            },
+            safety: original['Safety.Warning.On.Root'],
+            topRaters: 'user1 - user2 - user3',
+            topTaggers: 'memberUser4 - memberUser4 - memberUser4',
+            oneScore: 1,
+            users: ['user3@domain3.com'],
+            version: 10,
+            details: null,
+            active: true
+        };
+
+        let result;
+        let templateClone = clone(template);
+        const documentClone = clone(original);
+
+        beforeEach(() => {
+            result = transform(templateClone)(documentClone);
+        });
+
+        it('handles 1..* levels of nesting, and special characters in attribute names', () => {
+            expect(result).toEqual(expectedResult);
+        });
+
+        it('does not mutate the template', () => {
+            expect(templateClone).toEqual(template);
+        });
+
+        it('does not mutate the source', () => {
+            expect(documentClone).toEqual(original);
+        });
+    });
+
+    describe('deref-jsonpath:: meta-0/1 simple interpolation with query & constrains modifiers', () => {
         const template = {
             name: '{{title}} [{{description}}] http://items/{{title}}',
             reviews: {
@@ -84,7 +148,9 @@ describe('transform', () => {
             topTaggers: '{{tags["tag-name-with-dash"].author}} - {{tags["tag name with spaces"].author}} - {{tags["tag.name.with.dots"].author}}',
             scores: '{+{productReview..score}}', // <- * means get one or more search results. The value is substituted as is unless the place holder is a part of a bigger string, in that case it is replaced into the string template
             oneScore: '{{productReview..score}}', // <- * means get exactly one search results. The value is substituted as is unless the place holder is a part of a bigger string, in that case it is replaced into the string template
-            users: '{+{..author}}'
+            users: '{+{..author}}',
+            optional: '{?{not.there}}',
+            required: '{!{not.there}}' // should be set to null if doesn't exist
         };
 
         const expectedResult = {
@@ -108,7 +174,7 @@ describe('transform', () => {
         const documentClone = clone(original);
 
         beforeEach(() => {
-            result = transform(templateClone, documentClone);
+            result = transform(templateClone)(documentClone);
         });
 
         it('handles 1..* levels of nesting, and special characters in attribute names', () => {
@@ -158,7 +224,7 @@ describe('transform', () => {
         let templateClone = clone(template);
 
         beforeEach(() => {
-            result = transform(templateClone, original);
+            result = transform(templateClone)(original);
         });
 
         it('renders each array elements using the nested template, supporting straightforward enumeration', () => {
@@ -211,7 +277,7 @@ describe('transform', () => {
             let templateClone = clone(template);
 
             beforeEach(() => {
-                result = transform(templateClone, original);
+                result = transform(templateClone)(original);
             });
 
             it('renders each array elements using the nested template, supporting straightforward enumeration', () => {
@@ -267,7 +333,7 @@ describe('transform', () => {
             let templateClone = clone(template);
 
             beforeEach(() => {
-                result = transform(templateClone, original);
+                result = transform(templateClone)(original);
             });
 
             it('renders each array elements using the nested template, supporting straightforward enumeration', () => {
@@ -312,7 +378,7 @@ describe('transform', () => {
         let templateClone = clone(template);
 
         beforeEach(() => {
-            result = transform(templateClone, original);
+            result = transform(templateClone)(original);
         });
 
         it('handles 1..* levels of nesting, and special characters in attribute names', () => {
@@ -408,7 +474,7 @@ describe('transform', () => {
             let templateClone = clone(template);
 
             beforeEach(() => {
-                result = transform(templateClone, original);
+                result = transform(templateClone)(original);
             });
 
             it('applies the transformation pipeline to a single attribute using the | operator', () => {
@@ -451,7 +517,7 @@ describe('transform', () => {
             let templateClone = clone(template);
 
             beforeEach(() => {
-                result = transform(templateClone, original);
+                result = transform(templateClone)(original);
             });
 
             it('applies the transformation pipeline to a single attribute using the | operator', () => {
@@ -485,7 +551,7 @@ describe('transform', () => {
             let templateClone = clone(template);
 
             beforeEach(() => {
-                result = transform(templateClone, original);
+                result = transform(templateClone)(original);
             });
 
             it('applies the transformation pipeline to a single attribute using the | operator', () => {
@@ -534,7 +600,7 @@ describe('transform', () => {
         let templateClone = clone(template);
 
         beforeEach(() => {
-            result = transform(templateClone, original);
+            result = transform(templateClone)(original);
         });
 
         it('renders each object value using the nested template, supporting straightforward enumeration', () => {
@@ -582,7 +648,7 @@ describe('transform', () => {
         let templateClone = clone(template);
 
         beforeEach(() => {
-            result = transform(templateClone, original);
+            result = transform(templateClone)(original);
         });
 
         it('renders each object value using the nested template, supporting straightforward enumeration', () => {

@@ -1,7 +1,7 @@
 const {rephs} = require('../transform-beta');
 
 describe('#rephs', () => {
-    describe('tokenization', () => {
+    describe('parser', () => {
         it('returns non placeholders wrapped in an atom', () => {
             const txt = 'hello world';
             const expected = {"@meta": 0, "reduced": true, "source": "hello world", "value": "hello world"};

@@ -229,8 +229,25 @@ describe('tokenize', () => {
             [' : ', {$3: ':'}],
             [' #123_foo_bar ', {$3: '#123_foo_bar'}],
             // QUERY MODIFIERS
-            [' + ', {$4: '+'}],
-            // COMBINATIONS
+            [' + ', {$5: '+'}],
+            [' +5 ', {$5: '+5'}],
+            [' +100 ', {$5: '+100'}],
+            [' ? ', {"$4": "?"}],
+            [' ?=default', {"$4": "?=default"}],
+            [' ?=default:10 | +',  {"$4": "?=default:10 ", "$5": "+"}],
+            [' ?=default:_xyz:1xyz | +10 ', {"$4": "?=default:_xyz:1xyz ", "$5": "+10"}],
+            [' ?=default:a-b-c:a b c | +10 ', {"$4": "?=default:a-b-c:a b c ", "$5": "+10"}], // TODO: spaces in arguments should be discouraged outside "", Regex limitation of not being a true lexer
+            [' ?=default:"hello":"world of pain" | +10 ',  {"$4": "?=default:\"hello\":\"world of pain\"", "$5": "+10"}],
+            [' ?=default:"hello":"world - of - pain" | +10 ', {"$4": "?=default:\"hello\":\"world - of - pain\"", "$5": "+10"}],
+            [' !', {"$4": "!"}],
+            [' !=altSource', {"$4": "!=altSource"}],
+            [' !=altSource:10 | +', {"$4": "!=altSource:10 ", "$5": "+"}],
+            [' !=altSource:_xyz:1xyz | +10 ', {"$4": "!=altSource:_xyz:1xyz ", "$5": "+10"}],
+            [' !=altSource:a-b-c:a b c | +10 ', {"$4": "!=altSource:a-b-c:a b c ", "$5": "+10"}], // TODO: spaces in arguments should be discouraged outside "", Regex limitation of not being a true lexer
+            [' !=altSource:"hello":"world of pain" | +10 ', {"$4": "!=altSource:\"hello\":\"world of pain\"", "$5": "+10"}],
+            [' !=altSource:"hello":"world - of - pain" | +10 ', {"$4": "!=altSource:\"hello\":\"world - of - pain\"", "$5": "+10"}],
+
+                                // COMBINATIONS
             ['.. | *', {$1: '..', $2: '*'}],
             ['.1 | *', {$1: '.1', $2: '*'}],
             ['.10 | *', {$1: '.10', $2: '*'}],
@@ -252,19 +269,33 @@ describe('tokenize', () => {
             ['.1 | ** | : ', {$1: '.1', $2: '**', $3: ':'}],
             ['.10 | ** | : ', {$1: '.10', $2: '**', $3: ':'}],
 
-            ['.. | * | : | + ', {$1: '..', $2: '*', $3: ':', $4: '+'}],
-            ['.1 | * | : | + ', {$1: '.1', $2: '*', $3: ':', $4: '+'}],
-            ['.10 | * | : | + ', {$1: '.10', $2: '*', $3: ':', $4: '+'}],
-            ['.. | ** | : | + ', {$1: '..', $2: '**', $3: ':', $4: '+'}],
-            ['.1 | ** | : | + ', {$1: '.1', $2: '**', $3: ':', $4: '+'}],
-            ['.10 | ** | : | + ', {$1: '.10', $2: '**', $3: ':', $4: '+'}],
+            ['.. | * | : | + ', {"$1": "..", "$2": "*", "$3": ":", "$5": "+"}],
+            ['.1 | * | : | ! ', {$1: '.1', $2: '*', $3: ':', $4: '!'}],
+            ['.1 | * | : | !=source2 ', {"$1": ".1", "$2": "*", "$3": ":", "$4": "!=source2"}],
+            ['.10 | * | : | ? ', {$1: '.10', $2: '*', $3: ':', $4: '?'}],
+            ['.10 | * | : | ?=default ', {"$1": ".10", "$2": "*", "$3": ":", "$4": "?=default"}],
+            ['.. | ** | : | + ', {"$1": "..", "$2": "**", "$3": ":", "$5": "+"}],
+            ['.1 | ** | : | ! ', {$1: '.1', $2: '**', $3: ':', $4: '!'}],
+            ['.1 | ** | : | !=source2:username:password ', {"$1": ".1", "$2": "**", "$3": ":", "$4": "!=source2:username:password "}],
+            ['.10 | ** | : | ? ', {$1: '.10', $2: '**', $3: ':', $4: '?'}],
+            ['.10 | ** | : | ?=default:10 ', {"$1": ".10", "$2": "**", "$3": ":", "$4": "?=default:10 "}],
 
-            ['.. | * |#123_foo_bar | + ', {$1: '..', $2: '*', $3: '#123_foo_bar', $4: '+'}],
-            ['.1 | * |#123_foo_bar | + ', {$1: '.1', $2: '*', $3: '#123_foo_bar', $4: '+'}],
-            ['.10 | * |#123_foo_bar | + ', {$1: '.10', $2: '*', $3: '#123_foo_bar', $4: '+'}],
-            ['.. | ** |#123_foo_bar | + ', {$1: '..', $2: '**', $3: '#123_foo_bar', $4: '+'}],
-            ['.1 | ** |#123_foo_bar | + ', {$1: '.1', $2: '**', $3: '#123_foo_bar', $4: '+'}],
-            ['.10 | ** |#123_foo_bar | + ', {$1: '.10', $2: '**', $3: '#123_foo_bar', $4: '+'}]
+            ['.. | * |#123_foo_bar | + ', {$1: '..', $2: '*', $3: '#123_foo_bar', $5: '+'}],
+            ['.1 | * |#123_foo_bar | + ', {$1: '.1', $2: '*', $3: '#123_foo_bar', $5: '+'}],
+            ['.10 | * |#123_foo_bar | + ', {$1: '.10', $2: '*', $3: '#123_foo_bar', $5: '+'}],
+            ['.. | ** |#123_foo_bar | + ', {$1: '..', $2: '**', $3: '#123_foo_bar', $5: '+'}],
+            ['.1 | ** |#123_foo_bar | + ', {$1: '.1', $2: '**', $3: '#123_foo_bar', $5: '+'}],
+            ['.10 | ** |#123_foo_bar | + ', {$1: '.10', $2: '**', $3: '#123_foo_bar', $5: '+'}],
+
+            // double my fun?
+            ['.. | .1 | * |#123_foo_bar | + ', {"$1": ".1", "$2": "*", "$3": "#123_foo_bar", "$5": "+"}], // last one in a group wins
+            ['.1 | * | ** |#123_foo_bar | + ', {$1: '.1', $2: '**', $3: '#123_foo_bar', $5: '+'}], // last one in a group wins
+            ['.10 | * |#123_foo_bar | #somethingelse | + ', {$1: '.10', $2: '*', $3: '#somethingelse', $5: '+'}], // last one in a group wins
+            ['.. | ** |#123_foo_bar | + | ?', {$1: '..', $2: '**', $3: '#123_foo_bar', $4: '?', $5: '+'}], // last one in a group wins
+            ['.. | ** |#123_foo_bar | + | ?=default:"" | !=altsource:5', {"$1": "..", "$2": "**", "$3": "#123_foo_bar", "$4": "!=altsource:5", "$5": "+"}], // last one in a group wins
+            ['.1 | ** |#123_foo_bar | + | ?=default:"hello":"world - of - pain" + 10', {"$1": ".1", "$2": "**", "$3": "#123_foo_bar", "$4": "?=default:\"hello\":\"world - of - pain\"", "$5": "+"}], // last one in a group wins
+            ['.1 | ** |#123_foo_bar | + | ?=default:"hello":"world - of - pain" + 10 | !=altSource:"hello":"world - of - pain" | + 5', {"$1": ".1", "$2": "**", "$3": "#123_foo_bar", "$4": "?=default:\"hello\":\"world - of - pain\"", "$5": "+"}], // last one in a group wins
+
         ];
         const opOOOCombinations = [
             // OUT OF ORDER COMBINATIONS
@@ -278,16 +309,20 @@ describe('tokenize', () => {
             [' : | ** ', {$2: '**', $3: ':'}],
             [' : | .1 ', {$1: '.1', $3: ':'}],
 
-            [' + | .1 ', {$1: '.1', $4: '+'}],
-            [' + | * ', {$2: '*', $4: '+'}],
+            [' + | .1 ', {$1: '.1', $5: '+'}],
+            [' + | * ', {$2: '*', $5: '+'}],
 
             [' #123_foo_bar | .. ', {$1: '..', $3: '#123_foo_bar'}],
             [' #123_foo_bar | * ', {$2: '*', $3: '#123_foo_bar'}],
             [' #123_foo_bar | ** ', {$2: '**', $3: '#123_foo_bar'}],
             [' #123_foo_bar | .1 ', {$1: '.1', $3: '#123_foo_bar'}],
 
-            [' #123_foo_bar | + | ** ', {$2: '**', $3: '#123_foo_bar', $4: '+'}],
-            [' #123_foo_bar | + | .1 ', {$1: '.1', $3: '#123_foo_bar', $4: '+'}]
+            [' #123_foo_bar | + | ** ', {$2: '**', $3: '#123_foo_bar', $5: '+'}],
+            [' #123_foo_bar | + | .1 ', {$1: '.1', $3: '#123_foo_bar', $5: '+'}],
+
+            // double my fun?
+            [' #123_foo_bar | + | **  | *', {$2: '*', $3: '#123_foo_bar', $5: '+'}], // currently last operator in group wins
+            [' #123_foo_bar | + | .1  | ! | ? ', {$1: '.1', $3: '#123_foo_bar', $4: '?', $5: '+'}], // currently last operator in group wins
         ];
 
         const pipeCombinations = [
@@ -352,17 +387,27 @@ describe('tokenize', () => {
             });
         });
         describe('captures all operations respecting allowed order', () => {
-            // https://regex101.com/r/dMUYpQ/7
-            const opregex = /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#\w+)?\s*\|?\s*(\+)?\s*/g; // with forgiving names for tags, e.g. 123_foo_bar
-            // const opregex = /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#[a-zA-Z_]\w*)?\s*/g; // with valid identifier names for tags
-            const tokenNames = ['inception', 'enumerate', 'symbol', 'query'];
-            const lookup = {$1: tokenNames[0], $2: tokenNames[1], $3: tokenNames[2], $4: tokenNames[3]};
-            const alias = ({$1, $2, $3, $4}) => {
+            // https://regex101.com/r/dMUYpQ/8
+            // const opregex = /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#\w+)?\s*\|?\s*([\!\?])?\s*\|?\s*(\+\d*)?\s*/g; // with forgiving names for tags, e.g. 123_foo_bar
+            // https://regex101.com/r/dMUYpQ/11
+            const opregex = /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#\w+)?\s*\|?\s*(\!(?:=\w+(?:\s*\:\s*["]?[a-zA-Z0-9_\s-]*["]?)*)?|\?(?:=\w+(?:\s*\:\s*["]?[a-zA-Z0-9_\s-]*["]?)*)?)?\s*\|?\s*(\+\d*)?\s*/g;
+
+            // const opregex = <snippet> \s*\|?\s*(:|#[a-zA-Z_]\w*) <snippet> // with valid identifier names for tags
+            const tokenNames = ['inception', 'enumerate', 'symbol', 'constraints', 'query'];
+            const lookup = {
+                $1: tokenNames[0],
+                $2: tokenNames[1],
+                $3: tokenNames[2],
+                $4: tokenNames[3],
+                $5: tokenNames[4]
+            };
+            const alias = ({$1, $2, $3, $4, $5}) => {
                 const expected = {};
                 if ($1) expected[lookup['$1']] = $1;
                 if ($2) expected[lookup['$2']] = $2;
                 if ($3) expected[lookup['$3']] = $3;
                 if ($4) expected[lookup['$4']] = $4;
+                if ($5) expected[lookup['$5']] = $5;
                 return expected;
             };
 
@@ -392,7 +437,7 @@ describe('tokenize', () => {
              * https://regex101.com/r/n2qnj7/4/
              **/
 
-            // https://regex101.com/r/n2qnj7/4/
+                // https://regex101.com/r/n2qnj7/4/
             const onepiperegex = /(?:\s*\|\s*)((?:\w+|\*{1,2})(?:\s*\:\s*[a-zA-Z0-9_-]*)*)/g; // every sequenced match is a single pipe[:param]*
             // https://regex101.com/r/ZpJLOR/1/
             // const pipesregex = /((?:\s*\|?\s*(?:\w+|\*{1,2})(?:\s*\:\s*[a-zA-Z0-9_-]*)*)*)/g; // unified * with fn-names

@@ -23,15 +23,21 @@ const builtinPipes = {
 
 const placeholder = {
     full: /{([^{]*?)?{(.*?)}([^}]*)?}/g,
-    operators: /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#\w+)?\s*\|?\s*(\+)?\s*/g, // https://regex101.com/r/dMUYpQ/7
-    operatorNames: ['inception', 'enumerate', 'symbol', 'query'],
+    operators: /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#\w+)?\s*\|?\s*(\!(?:=\w+(?:\s*\:\s*["]?[a-zA-Z0-9_\s-]*["]?)*)?|\?(?:=\w+(?:\s*\:\s*["]?[a-zA-Z0-9_\s-]*["]?)*)?)?\s*\|?\s*(\+\d*)?\s*/g, // https://regex101.com/r/dMUYpQ/11
+    operatorNames: ['inception', 'enumerate', 'symbol', 'constraints', 'query'],
     pipes: /(?:\s*\|\s*)((?:\w+|\*{1,2})(?:\s*\:\s*[a-zA-Z0-9_-]*)*)/g // https://regex101.com/r/n2qnj7/4/
 };
 
 const rejectPlaceHolder = {open: '{>>{', close: '}<<}'};
 
+const builtins = {
+    defaultTo: (defaultValue, value) => coll.isEmptyValue(value) ? defaultValue : value,
+    flatten: coll.flatten
+};
+
+
 /**
- * regex place holder, a.k.a reph tokenizer
+ * regex place holder, a.k.a reph parser
  *
  * NOTE: the source placeholder can be repeated within the template-string, e.g. "{{x.y}} = {{x.y}}"
  * reph() would consume one only, effectively optimizing by removing the need to deref twice within the same scope
@@ -53,17 +59,17 @@ const reph = ([source, [[operators] = [], [path] = [], [pipes] = []] = []] = [],
         return ast;
     }
 
-    ast['@meta'] = 1;
+    ast['@meta']++;
 
     if (operators) {
         operators = sx.tokenize(placeholder.operators, operators, {tokenNames: placeholder.operatorNames});
-        operators['@meta'] = 2;
+        operators['@meta']++;
         ast.operators = operators;
     }
 
     if (pipes) {
         pipes = sx.tokenize(placeholder.pipes, pipes, {sequence: true});
-        pipes['@meta'] = 3;
+        pipes['@meta']++;
         ast.pipes = pipes;
     }
     return {...ast, path};
@@ -83,9 +89,11 @@ const rephs = (text, meta = 0) => {
     return coll.map(coll.which(reph), coll.iterator(matches, {indexed: true, kv: true}));
 };
 
-const builtins = {
-    defaultTo: (defaultValue, value) => coll.isEmptyValue(value) ? defaultValue : value,
-    flatten: coll.flatten
+const deref = (ast, {meta = 1, altSources = {Default: {}}} = {}) => document => {
+    const {value, reduced} = ast;
+    if (reduced) return value;
+
+
 };
 
 const jpify = path => path.startsWith('$') ? path : regex.memberOrDescendant.test(path) ? `$${path}` : `$.${path}`;
@@ -96,7 +104,7 @@ const jpify = path => path.startsWith('$') ? path : regex.memberOrDescendant.tes
  * @param document
  */
 
-const derefFrom = document => (ref, rph = rejectPlaceHolder) => {
+const derefFrom = (document, {meta = 0} = {}) => (ref, rph = rejectPlaceHolder) => {
     const noOp = '';
     let [key, [op, path, pipes]] = ref; // multiple uses of the placeholder regex within the same string returns the path multiple times, e.g. "({{x.y}})[{{x.y}}]"
     path = path.startsWith('$') ? path : /*path.startsWith(':') ? @HERE : */ jpify(path);
@@ -130,16 +138,26 @@ function XexpandStringNode(node) {
 }
 
 function renderStringNode(node, deref) {
-    const refs = sx.tokenize(reph(), node, [], false);
-    let rendered;
-    if (coll.isEmptyValue(refs)) {
-        rendered = node; // string literal with no placeholders
-    } else {
-        const derefedPairs = coll.map(coll.which(deref), coll.iterator(refs, {indexed: true, kv: true}));
-        rendered = renderString(node, derefedPairs);
-    }
+    const rephPairs = rephs(node);
+    const derefedPairs = coll.map(coll.which(deref), rephPairs);
+    const rendered = renderString(node, derefedPairs);
     return rendered;
 }
+
+
+// function renderStringNode(node, deref) {
+//     const refs = sx.tokenize(reph(), node, [], false);
+//     let rendered;
+//     if (coll.isEmptyValue(refs)) {
+//         rendered = node; // string literal with no placeholders
+//     } else {
+//         const derefedPairs = coll.map(coll.which(deref), coll.iterator(refs, {indexed: true, kv: true}));
+//         rendered = renderString(node, derefedPairs);
+//     }
+//     return rendered;
+// }
+
+
 
 const XhasSpreadOperator = element => {
     if (coll.isString(element)) {renderStringNode
@@ -183,13 +201,13 @@ function XrenderArrayNode(node, deref) {
 
 const renderObjectNode = coll.identity;
 
-function transform(template, document, meta = 0) {
+const transform = (template, {meta = 0, altSources = {Default: {}}} = {}) => document => {
     let counter = 1;
-    const deref = derefFrom(document);
+    const deref = derefFrom(document, {meta, altSources});
     let result;
 
     if (coll.isString(template)) {
-        result = renderStringNode(template, deref)
+        result = renderStringNode(template, deref, null);
     } else {
         result = traverse(template).map(function (node) {
             console.log('traverse :: ', counter++, this.path);
@@ -197,16 +215,16 @@ function transform(template, document, meta = 0) {
             if (coll.isFunction(node)) {
                 this.update(node(document)); // R.applySpec style, discouraged since it is not declarative or serializable
             } else if (coll.isString(node)) {
-                this.update((node, deref));
+                this.update(renderStringNode(node, deref, this));
             } else if (coll.isArray(node)) {
-                this.update(renderArrayNode(node, deref));
+                // this.update(renderArrayNode(node, deref));
             } else {
-                this.update(renderObjectNode(node, deref));
+                // this.update(renderObjectNode(node, deref));
             }
         });
     }
     return result;
-}
+};
 
 module.exports = {
     transform,

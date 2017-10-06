@@ -53,7 +53,7 @@ function* tokenGenerator(regex, str, {sequence = false} = {}) {
         lastIndex = matches.index;
         const match = matches.shift();
         // yield* matches/*.filter(token => !!token)*/.map(token => ({match, token})); // if we filter out undefined capture groups when the regex matches empty string we shift capture group identifiers!
-        if (sequence) { // WARNING: only use to get sequences of matches for interpolation purposes, don't use for strict capture group tokenization, capture group names/indexes might shift up
+        if (sequence) { // WARNING: only use to get sequences of matches for interpolation purposes, don't use for strict capture group parser, capture group names/indexes might shift up
             // TODO: this iterator can use nested aggregation groupBy :: (match, cgindex) -> {x: [[cgi00, cgi01], [cgi10, cgi11]]}
             yield* matches.map((token, index) => ({match, token, cgi: index + 1}));
         } else {
@@ -117,7 +117,7 @@ function tokenize(regex, str, {tokenNames = [], $n = true, cgindex = false, cgi0
     } else {
         /**
          * currently this mode doesn't have the source (full-match)
-         * capture groups oriented tokenization, with repeated multi-capture-group regex
+         * capture groups oriented parser, with repeated multi-capture-group regex
          * with n slots (capture groups)
          * 1st match would be [cg1, undefined, undefined, ...]
          * 3nd match would be [undefined, undefined, cg3, ...]
@@ -179,7 +179,3 @@ function lazyTemplate(template, options) {
         return template;
     };
 }
-
-// function isString(value) {
-//     return (typeof value === 'string' || value instanceof String);
-// }

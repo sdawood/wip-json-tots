@@ -67,9 +67,15 @@ const empty = function* () {
 
 const yrruc = fn => (...args) => x => fn(x, ...args); // reversed `curry`
 
-const pipe = (...fns) => fns.reduceRight((f, g) => (...args) => f(g(...args)));
+// const pipe = (...fns) => fns.reduceRight((f, g) => (...args) => f(g(...args)));
+const pipe = (...fns) => reduceRight((f, g) => (...args) => f(g(...args)), null, fns);
 
-const compose = (...fns) => fns.reduce((f, g) => (...args) => f(g(...args)));
+const pipes = (...fns) => compose(result_, reduceRight((f, g) => (...args) => { const result = g(...args); return isReduced(result) ? result['@@transducer/value'] : f(result); }, null, fns));
+
+// const compose = (...fns) => fns.reduce((f, g) => (...args) => f(g(...args)));
+const compose = (...fns) => reduce((f, g) => (...args) => f(g(...args)), null, fns);
+
+const composes = (...fns) => compose(result_, reduce((f, g) => (...args) => { const result = g(...args); return isReduced(result) ? result['@@transducer/value'] : f(result); }, null, fns));
 
 const composeAsync = (...fns) => reduceAsync((fn1, fn2) => async (...args) => fn1(await fn2(...args)), undefined, fns);
 
@@ -102,7 +108,7 @@ const isDate = o => objectTag(o) === '[object Date]';
 const isRegExp = o => objectTag(o) === '[object RegExp]';
 const isError = o => objectTag(o) === '[object Error]';
 const isBoolean = o => objectTag(o) === '[object Boolean]';
-const isNumber = o => objectTag(o) === '[object Number]';
+const isNumber = o => objectTag(o) === '[object Number]' && o == +o; // typeof NaN -> 'number' <WATT?!> `NaN` primitive is the only value that is not equal to itself.
 const isString = o => objectTag(o) === '[object String]';
 const isArray = Array.isArray || (o => objectTag(o) === '[object Array]');
 const isObject = o => o && o.constructor === Object;
@@ -134,20 +140,20 @@ function* entries(o, values = false, kv = true) {
 }
 
 
-function* range(...args) {
-    switch (args.length) {
-        case 1: {
-            break;
-        }
-        case 2: {
-            break;
-        }
-
-    }
-    if (!isNumber(take) || !isNumber(start)) return;
-    while (take) {
-    }
-}
+// function* range(...args) {
+//     switch (args.length) {
+//         case 1: {
+//             break;
+//         }
+//         case 2: {
+//             break;
+//         }
+//
+//     }
+//     if (!isNumber(take) || !isNumber(start)) return;
+//     while (take) {
+//     }
+// }
 
 /**
  * zip generator that works with iterables, iterators and generators
@@ -174,6 +180,9 @@ const zipWith = (enumerator1, enumerator2, fn) => iterator(zipWithGen(enumerator
 const zip = (enumerator1, enumerator2) => zipWith(enumerator1, enumerator2);
 
 function* takeGen(n, enumerable) {
+    n = isNumber(n) ? n : Number.POSITIVE_INFINITY;
+    enumerable = iterator(enumerable);
+
     let {value, done} = enumerable.next();
     while (!done && n-- > 0) {
         yield value;
@@ -184,6 +193,9 @@ function* takeGen(n, enumerable) {
 const take = (n, enumerable) => iterator(takeGen(n, enumerable)); // TODO: implement take as a stateful transformer/transducer for composability
 
 function* skipGen(n, enumerable) {
+    n = isNumber(n) ? n : 0;
+    enumerable = iterator(enumerable);
+
     let done = false;
     while (!done && n-- > 0) {
         ({done} = enumerable.next());
@@ -363,6 +375,16 @@ const accessor = document => (path, {name = 'value', empty = identity} = {}) => 
 
 /******************* [ Transducers+ ] *******************/
 
+const reduced = x => x && x['@@transducer/reduced'] ? x :
+        {
+            '@@transducer/value': x,
+            '@@transducer/reduced': true
+        };
+
+const isReduced = x => x && x['@@transducer/reduced'];
+
+const result_ = result => isReduced(result) ? result['@@transducer/value'] : result;
+
 /**
  * Implements reduce for iterables
  *
@@ -372,7 +394,7 @@ const accessor = document => (path, {name = 'value', empty = identity} = {}) => 
  * @param initFn: produces the initial value for the accumulator
  * @returns {Accumulator-Collection}
  */
-function reduce(reducingFn, initFn, enumerable) {
+function reduce(reducingFn, initFn, enumerable, resultFn = result_) {
     let result;
     const iter = iterator(enumerable);
 
@@ -383,9 +405,33 @@ function reduce(reducingFn, initFn, enumerable) {
     result = initFn();
 
     for (const value of iter) {
+        if (isReduced(result)) {
+            result = result['@@transducer/value'];
+            break;
+        }
         result = reducingFn(result, value);
     }
-    return result;
+    return resultFn(result);
+}
+
+function reduceRight(reducingFn, initFn, array, resultFn = result_) {
+    let result;
+    const iter = iterator(array.slice().reverse());
+
+    if (!initFn) {
+        const [initValue] = iter;
+        initFn = lazy(initValue);
+    }
+    result = initFn();
+
+    for (const value of iter) {
+        if (isReduced(result)) {
+            result = result['@@transducer/value'];
+            break;
+        }
+        result = reducingFn(result, value);
+    }
+    return resultFn(result);
 }
 
 const flatten = enumerable => reduce(cat(), () => [], enumerable);
@@ -419,11 +465,21 @@ const reduceAsync = async (reducingFn, initFn, enumerable) => {
     result = initFn();
     if (isAsync) {
         for await (const value of iter) { // see: https://babeljs.io/docs/plugins/syntax-async-generators/
-            result = await reducingFn(await result, await value);
+            result = await result;
+            if (isReduced(result)) {
+                result = result['@@transducer/value'];
+                break;
+            }
+            result = await reducingFn(result, await value);
         }
     } else {
         for (const value of iter) {
-            result = await reducingFn(await result, await value);
+            result = await result;
+            if (isReduced(result)) {
+                result = result['@@transducer/value'];
+                break;
+            }
+            result = await reducingFn(result, await value);
         }
     }
     return result;
@@ -583,7 +639,9 @@ module.exports = {
     yrruc,
     flip,
     pipe,
+    pipes,
     compose,
+    composes,
     composeAsync,
     SymbolIterator,
     SymbolAsyncIterator,
@@ -628,7 +686,10 @@ module.exports = {
     concatMapAsync: mapcatAsync,
     update,
     mapUpdate,
+    reduced,
+    isReduced,
     reduce,
+    reduceRight,
     reduceAsync,
     into,
     mapTransformer,
