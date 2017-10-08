@@ -1,5 +1,5 @@
 const F = require('./functional-pipelines');
-let {slice, split, of, has} = require('./operators');
+let {slice, split, of, has} = require('./builtins');
 slice = F.which(slice);
 split = F.which(split);
 of = F.which(of);

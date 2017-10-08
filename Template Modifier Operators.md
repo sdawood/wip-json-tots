@@ -1,8 +1,24 @@
 Template Modifier Operators
 
-### Meta-1 :: jsonpath deref
-- {?{path}} === optional, drop if empty
-- {!{path}} === required, error (how) if empty
-- {+N{path}} === one or more, optimize by passing N to jp.query(obj, pathExpression[, count]) , can be mixed with the above
+### @meta-1 :: jsonpath deref
 
-given the above, [?|!] are combinable with +[N] <- N is optional, missing means all
+### @meta-2 :: operators
+
+#### (1) query operators
+- `{ {path}}` === exactly one
+- `{ + {path}}` === one or more
+- `{ +N {path}}` === take(N)
+
+#### (2) constraint operators
+
+- `{ ? {path}}` === optional, drop if empty
+- `{ ?=default {path}}` === if empty, lookup in defaults, if empty, drop
+- `{ ?=default:VALUE {path}}` === if empty, use VALUE as default value
+
+- `{ ! {path}}` === required, error (null) if empty
+- `{ !=altSource {path}}` === if empty, lookup in altSource, if empty, null
+- `{ !=altSource:VALUE {path}}` === if empty, lookup in altSource, if empty, use VALUE as default value
+
+#### (3) symbol operators
+#### (4) enumerate operators
+#### (5) inception operators

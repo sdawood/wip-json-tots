@@ -3,31 +3,17 @@ const jp = require('jsonpath');
 
 const F = require('./core/functional-pipelines');
 const sx = require('./util/strings');
-
-const regex = {
-    safeDot: /\.(?![\w\.]+")/,
-    memberOrDescendant: /^[\[\.]/
-};
-
-const builtinPipes = {
-    '*': F.flatten,
-    '**': F.iterator // {indexed: true, kv: true, metadata = () => path}
-};
+const operators = require('./core/operators');
 
 const placeholder = {
     full: /{([^{]*?)?{(.*?)}([^}]*)?}/g,
-    operators: /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#\w+)?\s*\|?\s*([!|\?](?:=\w+(?:\s*\:\s*["]?[a-zA-Z0-9_\s-]*["]?)*)?)?\s*\|?\s*(\+\d*)?\s*/g, // https://regex101.com/r/dMUYpQ/12
+    // allowing for all valid jsonpath characters in #<tag>, making the path valid is currently the user responsibility, e.g. #x.y["z w"]["v.q"], standalone # uses path from context
+    operators: /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#[a-zA-Z0-9_\-\$\.\[\]"\s]*)?\s*\|?\s*([!|\?](?:=\w+(?:\s*\:\s*["]?[a-zA-Z0-9_\s\-\$]*["]?)*)?)?\s*\|?\s*(\+\d*)?\s*/g, // https://regex101.com/r/dMUYpQ/16
     operatorNames: ['inception', 'enumerate', 'symbol', 'constraints', 'query'],
-    pipes: /(?:\s*\|\s*)((?:\w+|\*{1,2})(?:\s*\:\s*[a-zA-Z0-9_-]*)*)/g // https://regex101.com/r/n2qnj7/4/
+    pipes: /(?:\s*\|\s*)((?:[a-zA-Z0-9_\-\$]+|\*{1,2})(?:\s*\:\s*[a-zA-Z0-9_\s-\$]*)*)/g // https://regex101.com/r/n2qnj7/5
 };
 
 const rejectPlaceHolder = {open: '{>>{', close: '}<<}'};
-
-const builtins = {
-    defaultTo: (defaultValue, value) => F.isEmptyValue(value) ? defaultValue : value,
-    flatten: F.flatten
-};
-
 
 /**
  * regex place holder, a.k.a reph parser
@@ -55,13 +41,13 @@ const reph = ([source, [[operators] = [], [path] = [], [pipes] = []] = []] = [],
 
     if (operators) {
         operators = sx.tokenize(placeholder.operators, operators, {tokenNames: placeholder.operatorNames});
-        operators['@meta']++;
+        operators['@meta'] = ++ast['@meta'];
         ast.operators = operators;
     }
 
     if (pipes) {
         pipes = sx.tokenize(placeholder.pipes, pipes, {sequence: true});
-        pipes['@meta']++;
+        pipes['@meta'] = ++ast['@meta'];
         ast.pipes = pipes;
     }
     return {...ast, path};
@@ -80,42 +66,60 @@ const rephs = (text, meta = 0) => {
     return F.map(F.which(reph), F.iterator(matches, {indexed: true, kv: true}));
 };
 
-const jpify = path => path.startsWith('$') ? path : regex.memberOrDescendant.test(path) ? `$${path}` : `$.${path}`;
+function renderString(node, derefedList) {
+    let rendered;
+    if (derefedList.length === 1 && derefedList[0].source === node) {
+        rendered = derefedList[0].value; // stand alone '{{path}}' expands to value, without toString conversion
+    } else {
+        const replace = (acc, {source, value}) => acc.replace(new RegExp(sx.escapeStringForRegex(source), 'g'), value !== undefined ? value : '');
+        rendered = F.reduce(replace, () => node, derefedList);
+    }
+    return rendered;
+}
 
-const deref = sources => (ast, {meta = 1} = {}) => {
-    // if(F.isReduced(ast)) return F.unreduced(ast);
-    const values = jp.query(sources['original'], jpify(ast.path));
-    return {...ast, value: values};
-};
+function renderStringNode(contextRef, {meta = 0, sources = {'default': {}}, tags = {}} = {}) {
+    const refList = rephs(contextRef.node);
+    if (F.isReduced(refList)) {
+        return F.unreduced(contextRef.node);
+    }
 
-
-function renderStringNode(node, {meta = 0, sources = {defaults: {}}} = {}) {
-    const refList = rephs(node);
-    const derefedList = F.map(F.compose(deref(sources)), refList);
-    const rendered = renderString(node, derefedList);
+    const derefedList = F.map(operators.applyAll({meta, sources, tags, context: contextRef}), refList);
+    const rendered = renderString(contextRef.node, derefedList);
     return rendered;
 }
 
 const renderObjectNode = F.identity;
 
-const transform = (template, {meta = 0, sources = {defaults: {}}} = {}) => document => {
+const transform = (template, {meta = 0, sources = {'default': {}}, tags = {}} = {}) => document => {
     let counter = 1;
     let result;
 
     if (F.isString(template)) {
-        result = renderStringNode(template, {meta, sources: {...sources, original: document}});
+        result = renderStringNode(template, {meta, sources: {...sources, origin: document}});
     } else {
         result = traverse(template).map(function (node) {
             console.log('traverse :: ', counter++, this.path);
+            const contextRef = this;
+            let rendered;
 
             if (F.isFunction(node)) {
-                this.update(node(document)); // R.applySpec style, discouraged since it is not declarative or serializable
+                rendered = node(document); // R.applySpec style, discouraged since it is not declarative or serializable
             } else if (F.isString(node)) {
-                this.update(renderStringNode(node, {meta, sources: {...sources, original: document}}));
+                rendered = renderStringNode(contextRef, {meta, sources: {...sources, origin: document}, tags});
             } else if (F.isArray(node)) {
-                // this.update(renderArrayNode(node, deref));
+                // rendered = renderArrayNode(node, deref);
+                rendered = node;
             } else {
-                // this.update(renderObjectNode(node, deref));
+                // rendered = renderObjectNode(node, deref);
+                rendered = node;
+            }
+
+            if (this.isRoot) return;
+
+            if (rendered === undefined) {
+                this.remove(true); // JSON doesn't eat undefined, drop the key and stop traversing this subtree
+            } else {
+                this.update(rendered);
             }
         });
     }

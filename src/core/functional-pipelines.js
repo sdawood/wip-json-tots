@@ -69,7 +69,7 @@ const yrruc = fn => (...args) => x => fn(x, ...args); // reversed `curry`
 
 const pipe = (...fns) => reduceRight((f, g) => (...args) => f(g(...args)), null, fns);
 
-const pipes = (...fns) => compose(unreduced, reduceRight((f, g) => (...args) => { const result = g(...args); return isReduced(result) ? result['@@transducer/value'] : f(result); }, null, fns));
+const pipes = (...fns) => pipe(reduceRight((f, g) => (...args) => { const result = g(...args); return isReduced(result) ? result['@@transducer/value'] : f(result); }, null, fns), unreduced);
 // const pipes = (...fns) => reduceRight((f, g) => (...args) => { const result = g(...args); return isReduced(result) ? result : f(result); }, null, fns);
 
 const compose = (...fns) => reduce((f, g) => (...args) => f(g(...args)), null, fns);
@@ -569,13 +569,13 @@ const into = (container, transducer, enumerable) => {
  * of an iterable (collection with length property and array like indexs).
  * Will handle both strings and array.
  *
- * @param {Array|String} collection
- * @param {None|Integer} start First index to include. If negative it will be indicies from end
+ * @param {None|Integer} from First index to include. If negative it will be indicies from end
  (i.e. -1 is last item). Omit or pass 0/null/undefined for 0.
- * @param {None|Integer} end Last index to include. If negative it will be indicies from end
+ * @param {None|Integer} to Last index to include. If negative it will be indicies from end
  (i.e. -1 is last item). Omit or pass null/undefined for end.
  * @param {None|Intger} step Increments to increase by (non-1 will skip indicies). Negative values
  will reverse the output.
+ * @param {Array|String} collection
  * @returns {Array|String} sliced array
  *
  * @example
@@ -588,7 +588,7 @@ const into = (container, transducer, enumerable) => {
  * slice(list, null, null, 2) // => [1, 3, 5]
  * slice(list, null, null, -2) // => [5, 3]
  */
-function slice(list, from, to, step) {
+const slice = (from, to, step) => list => {
     if (step === 0) throw Error("Slice step cannot be zero");
     const isstring = isString(list)
     if (isstring) {
@@ -622,7 +622,7 @@ function slice(list, from, to, step) {
     if (step < 0) result.reverse();
     // Return a string for input strings otherwise an array
     return isstring ? result.join('') : result;
-}
+};
 
 module.exports = {
     which,
