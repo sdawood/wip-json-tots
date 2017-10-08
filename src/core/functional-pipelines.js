@@ -272,7 +272,7 @@ function* permute(...args) {
  * @param generator
  * @returns {Iterator}
  */
-function toIterator(generator, indexed = false) {
+function toIterator(generator, {indexed = false, kv = false} = {}) {
     return {
         [Symbol.iterator]() {
             return this;
@@ -280,7 +280,7 @@ function toIterator(generator, indexed = false) {
         next() {
             const {value, done} = generator.next();
             this.index = done ? this.index : this.index != null ? this.index + 1 : 0;
-            return indexed ? {value: [value, this.index], done} : {value, done};
+            return indexed ? {value: kv ? [this.index, value] : [value, this.index], done} : {value, done};
         }
     };
 }
@@ -290,11 +290,11 @@ function iterator(o, {indexed = false, kv = false, metadata = lazy({})} = {}) {
     if(isNil(o)) {
         return empty();
     } else if (isGenerator(o)) { // generator only
-        iter = toIterator(o, indexed);
+        iter = toIterator(o, {indexed, kv});
     } else if (isIterator(o)) { // iterator (generator would have passed)
-        iter = indexed ? toIterator(o, indexed) : o;
+        iter = indexed ? toIterator(o, {indexed, kv}) : o;
     } else if (isIterable(o)) { // iterable (NOTE: iterator and generator would have passed the test as well)
-        iter = indexed ? toIterator(o[Symbol.iterator](), indexed) : o[Symbol.iterator]();
+        iter = indexed ? toIterator(o[Symbol.iterator](), {indexed, kv}) : o[Symbol.iterator]();
     } else if (isObject(o)) {
         iter = toIterator(entries(o, !indexed, kv));
     } else {

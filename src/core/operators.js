@@ -31,12 +31,21 @@ const query = (ast, {meta = 2} = {}) => {
 
 const constraints = sources => (ast, {meta = 2} = {}) => {
     const ops = {
-        '?': ast => (_, defaultValue) => ast.value !== undefined ? ast : (defaultValue !== undefined ? {...ast, value: defaultValue} : F.compose(query, deref(sources))(ast, {meta, source: 'default'})),
+        '?': ast => (_, defaultValue) => ast.value !== undefined ? ast : (defaultValue !== undefined ? {
+            ...ast,
+            value: defaultValue
+        } : F.compose(query, deref(sources))(ast, {meta, source: 'default'})),
         '!': ast => (altSource, defaultValue) => {
             let result = ast;
             if (ast.value === undefined) {
-                result = !F.isEmptyValue(altSource) ? F.compose(query, deref(sources))(ast, {meta, source: altSource}) : {...result, value: undefined};
-                result = result.value !== undefined ? result : (defaultValue !== undefined ? {...result, value: defaultValue} : {...result, value: null})
+                result = !F.isEmptyValue(altSource) ? F.compose(query, deref(sources))(ast, {
+                    meta,
+                    source: altSource
+                }) : {...result, value: undefined};
+                result = result.value !== undefined ? result : (defaultValue !== undefined ? {
+                    ...result,
+                    value: defaultValue
+                } : {...result, value: null})
             }
             return result;
         }
@@ -53,8 +62,12 @@ const constraintsOperator = sources => F.composes(constraints(sources), bins.has
 
 const symbol = ({tags, context}) => (ast, {meta = 2} = {}) => {
     const ops = {
-        ':' : '',
-        '#' : ast => tag => { const path = F.isEmptyValue(tag) ? jp.stringify(context.path) : jpify(tag); jp.value(tags, path, ast.value); return {...ast, tag: path}; }
+        ':': '',
+        '#': ast => tag => {
+            const path = F.isEmptyValue(tag) ? jp.stringify(context.path) : jpify(tag);
+            jp.value(tags, path, ast.value);
+            return {...ast, tag: path};
+        }
     };
 
     const [op, ...tag] = ast.operators.symbol;
@@ -64,7 +77,23 @@ const symbol = ({tags, context}) => (ast, {meta = 2} = {}) => {
 
 const symbolOperator = ({tags, context}) => F.composes(symbol({tags, context}), bins.has('$.operators.symbol'));
 
-const applyAll = ({meta, sources, tags, context}) => F.composes(symbolOperator({tags, context}), constraintsOperator(sources), query, deref(sources));
+const enumerate = ast => {
+    const ops = {
+        '*': ast => [...F.iterator(ast.value)],
+        '**': ast => [...F.iterator(ast.value, {indexed: true, kv: true})]
+    };
+
+    const [i, ik = ''] = ast.operators.symbol;
+    const result = ops[i + ik](ast);
+    return {...result, '@meta': meta};
+};
+
+const enumerateOperator = ast => F.composes(enumerate(ast), bins.has('$.operators.enumerate'));
+
+const applyAll = ({meta, sources, tags, context}) => F.composes(enumerateOperator, symbolOperator({
+    tags,
+    context
+}), constraintsOperator(sources), query, deref(sources));
 
 
 module.exports = {

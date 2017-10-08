@@ -1,7 +1,36 @@
 const F = require('./functional-pipelines');
 
 const dataObject = {a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9, j: 10};
+const dataIndexValuePairs = [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 9], [9, 10]];
+const dataKeyValuePairs = [["a", 1], ["b", 2], ["c", 3], ["d", 4], ["e", 5], ["f", 6], ["g", 7], ["h", 8], ["i", 9], ["j", 10]];
+
+const dataObjects = {
+    a: {name: 'name_a', value: 1},
+    b: {name: 'name_b', value: 2},
+    c: {name: 'name_c', value: 3},
+    d: {name: 'name_d', value: 4},
+    e: {name: 'name_e', value: 5},
+    f: {name: 'name_f', value: 6},
+    g: {name: 'name_g', value: 7},
+    h: {name: 'name_h', value: 8},
+    i: {name: 'name_i', value: 9},
+    j: {name: 'name_j', value: 10}
+};
 const dataIterable = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const dataObjectsIterable = [{key: 'a', name: 'name_1', value: 1}, {key: 'b', name: 'name_2', value: 2}, {
+    key: 'c',
+    name: 'name_3',
+    value: 3
+}, {key: 'd', name: 'name_4', value: 4}, {key: 'e', name: 'name_5', value: 5}, {
+    key: 'f',
+    name: 'name_6',
+    value: 6
+}, {key: 'g', name: 'name_7', value: 7}, {key: 'h', name: 'name_8', value: 8}, {
+    key: 'i',
+    name: 'name_9',
+    value: 9
+}, {key: 'j', name: 'name_10', value: 10}];
+
 const dataIterator = () => dataIterable[F.SymbolIterator]();
 
 function* dataGenerator() {
@@ -71,6 +100,67 @@ const xformAdd10AsyncBox = F.mapAsyncTransformer(fn1AsyncBox);
 const xformSquareAsyncBox = F.mapAsyncTransformer(fn2AsyncBox);
 
 describe('sync', () => {
+    describe('iterator', () => {
+        describe('iterator of values', () => {
+            it('creates an iterator over an object', () => {
+                const result = F.iterator(dataObject);
+                expect([...result]).toEqual(dataIterable);
+            });
+
+            it('creates an iterator over an iterable', () => {
+                const result = F.iterator(dataIterable);
+                expect([...result]).toEqual(dataIterable);
+            });
+
+            it('creates an iterator over an iterator', () => {
+                const result = F.iterator(dataIterator());
+                expect([...result]).toEqual(dataIterable);
+            });
+
+            it('creates an iterator over a generator', () => {
+                const result = F.iterator(dataGenerator());
+                expect([...result]).toEqual(dataIterable);
+            });
+
+            it('creates an iterator over an empty value', () => {
+                let result = F.iterator(null);
+                expect([...result]).toEqual([]);
+
+                result = F.iterator(undefined);
+                expect([...result]).toEqual([]);
+            });
+        });
+        describe('iterator of [key, value] pais', () => {
+            it('creates an iterator over an object', () => {
+                const result = F.iterator(dataObject, {indexed: true, kv: true});
+                expect([...result]).toEqual(dataKeyValuePairs);
+            });
+
+            it('creates an iterator over an iterable', () => {
+                const result = F.iterator(dataIterable, {indexed: true, kv: true});
+                expect([...result]).toEqual(dataIndexValuePairs);
+            });
+
+            it('creates an iterator over an iterator', () => {
+                const result = F.iterator(dataIterator(), {indexed: true, kv: true});
+                expect([...result]).toEqual(dataIndexValuePairs);
+            });
+
+            it('creates an iterator over a generator', () => {
+                const result = F.iterator(dataGenerator(), {indexed: true, kv: true});
+                expect([...result]).toEqual(dataIndexValuePairs);
+            });
+
+            it('creates an iterator over an empty value', () => {
+                let result = F.iterator(null, {indexed: true, kv: true});
+                expect([...result]).toEqual([]);
+
+                result = F.iterator(undefined);
+                expect([...result]).toEqual([], {indexed: true, kv: true});
+            });
+        });
+    });
+
     describe('map', () => {
         it('maps a function over an enumerable -> object values', () => {
             const result = F.map(fn1, dataObject);
@@ -194,63 +284,63 @@ describe('sync', () => {
         const data = ['a', 'b', 'c', 'd', 'e', 'f'];
 
         it('no params yields copy', () => {
-            expect(F.slice(data)).toEqual(data);
+            expect(F.slice()(data)).toEqual(data);
         });
 
         it('no end param defaults to end', () => {
-            expect(F.slice(data, 2)).toEqual(data.slice(2));
+            expect(F.slice(2)(data)).toEqual(data.slice(2));
         });
 
         it('zero end param yields empty', () => {
-            expect(F.slice(data, 0, 0)).toEqual([]);
+            expect(F.slice(0, 0)(data)).toEqual([]);
         });
 
         it('first element with explicit params', () => {
-            expect(F.slice(data, 0, 1, 1)).toEqual(['a']);
+            expect(F.slice(0, 1, 1)(data)).toEqual(['a']);
         });
 
         it('last element with explicit params', () => {
-            expect(F.slice(data, -1, 6)).toEqual(['f']);
+            expect(F.slice(-1, 6)(data)).toEqual(['f']);
         });
 
         it('empty extents and negative step reverses', () => {
-            expect(F.slice(data, null, null, -1)).toEqual(['f', 'e', 'd', 'c', 'b']);
+            expect(F.slice(null, null, -1)(data)).toEqual(['f', 'e', 'd', 'c', 'b']);
         });
 
         it('meaningless negative step partial slice', () => {
-            expect(F.slice(data, 2, 4, -1)).toEqual([]);
+            expect(F.slice(2, 4, -1)(data)).toEqual([]);
         });
 
         it('negative step partial slice no start defaults to end', () => {
-            expect(F.slice(data, null, 2, -1)).toEqual(F.slice(data, data.length, 2, -1));
-            expect(F.slice(data, null, 2, -1)).toEqual(['f', 'e', 'd']);
+            expect(F.slice(null, 2, -1)(data)).toEqual(F.slice(data.length, 2, -1)(data));
+            expect(F.slice(null, 2, -1)(data)).toEqual(['f', 'e', 'd']);
         });
 
         it('extents clamped end', () => {
-            expect(F.slice(data, null, 100)).toEqual(data);
+            expect(F.slice(null, 100)(data)).toEqual(data);
         });
 
         it('extents clamped beginning', () => {
-            expect(F.slice(data, -100, 100)).toEqual(data);
+            expect(F.slice(-100, 100)(data)).toEqual(data);
         });
 
         it('backwards extents yields empty', () => {
-            expect(F.slice(data, 2, 1)).toEqual([]);
+            expect(F.slice(2, 1)(data)).toEqual([]);
         });
 
         it('zero step gets shot down', () => {
             expect(() => {
-                F.slice(data, null, null, 0);
+                F.slice(null, null, 0)(data);
             }).toThrow();
         });
 
         it('slice with step > 1', () => {
-            const results = F.slice(data, 0, 4, 2);
+            const results = F.slice(0, 4, 2)(data);
             expect(results).toEqual(['a', 'c']);
         });
 
         it('meaningless slice with start < end, step < 0', () => {
-            const results = F.slice(data, 0, 2, -1);
+            const results = F.slice(0, 2, -1)(data);
             expect(results).toEqual([]);
         });
 
@@ -274,14 +364,14 @@ describe('sync', () => {
     });
 
     describe('sticky a.k.a memorizeWhen', () => {
-        const data1 =                    [1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1];
-        const expected1_2_recharge =     [1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1]; // recharge: true, recharge sticky counter with every new positive hit
+        const data1 = [1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1];
+        const expected1_2_recharge = [1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1]; // recharge: true, recharge sticky counter with every new positive hit
         const expected1_2_not_recharge = [1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1]; // recharge: false, accidentally equal!!
-        const data2 =                    [0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1];
-        const expected2_2_recharge =     [0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1]; // recharge: true
+        const data2 = [0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1];
+        const expected2_2_recharge = [0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1]; // recharge: true
         const expected2_2_not_recharge = [0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1];
-        const data3 =                    [0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1];
-        const expected3_3_recharge =     [0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1]; // recharge: true
+        const data3 = [0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1];
+        const expected3_3_recharge = [0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1]; // recharge: true
         const expected3_3_not_recharge = [0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1];
 
         describe('with recharge = false', () => {
@@ -440,7 +530,7 @@ describe('sync', () => {
             expect(result).toEqual(expectedResult.slice(0, 2));
         });
         it('transduce using composed transducers * left * to right, over an enumerable -> generator', () => {
-            const transducer = F.compose(xformAdd10, xformSquare, xfMax(200) , xfilterEven);
+            const transducer = F.compose(xformAdd10, xformSquare, xfMax(200), xfilterEven);
             const reducingFn = transducer(F.append(/*reducingFn*/));
             const result = F.reduce(reducingFn, () => [], dataGenerator());
             expect(result).toEqual(expectedResult.slice(0, 2));
