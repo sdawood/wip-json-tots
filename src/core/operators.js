@@ -1,34 +1,37 @@
 // const curry = require('curry');
 const jp = require('jsonpath');
 
-const coll = require('./collections');
+const F = require('./functional-pipelines');
 const sx = require('../util/strings');
 
 const slice = (...args) => iterable => iterable.slice(...args);
 const split = delimiter => str => str.split(delimiter);
-const of = key => o => o[key] !== undefined ? o[key] : coll.reduced(o);
-const has = path => o => (jp.value(o, path) !== undefined) ? o : coll.reduced(o);
+const of = key => o => o[key] !== undefined ? o[key] : F.reduced(o);
+const has = path => o => (jp.value(o, path) !== undefined) ? o : F.reduced(o);
 
-const query = ast => {
-    const regex = /\+(\d*)/;
-    let {take} = sx.tokenize(regex, ast.operators.query, {tokenNames: ['take']});
-    // return coll.withOneSlot(coll.take)(take, coll.__);
-    return {...ast, value: [...coll.take(parseInt(take))]};
+const query = (ast, {meta = 2} = {}) => {
+    let queryOp = values => values.pop();
+
+    if (ast.operators.query) {
+        const regex = /\+(\d*)/;
+        let {take} = sx.tokenize(regex, ast.operators.query, {tokenNames: ['take']});
+        queryOp = values => [...F.take(parseInt(take), values)];
+    }
+    // return F.withOneSlot(F.take)(take, F.__);
+    return {...ast, meta, value: queryOp(ast.value)};
 };
 
-const queryOp = coll.compose(query, has('$.operators.query'));
+const constraints = (ast, {meta = 2} = {}) => {
+    let [op, eq, ...app] = ast.operators.constraints;
 
-const constraints = ast => {
-    const iter = coll.iterator(ast.operators.constraints);
-    const [operator] = iter;
 
 };
 
-const constraintsOp = coll.compose(query, has('$.operators.constraints'));
+const constraintsOp = F.compose(constraints, has('$.operators.constraints'));
 
 
 module.exports = {
-    query: queryOp,
+    query,
     constraints: constraintsOp,
     slice,
     split,

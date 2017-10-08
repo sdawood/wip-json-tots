@@ -1,7 +1,7 @@
 const traverse = require('traverse');
 const jp = require('jsonpath');
 
-const coll = require('./core/collections');
+const F = require('./core/functional-pipelines');
 const sx = require('./util/strings');
 
 const regex = {
@@ -26,8 +26,8 @@ const rejectPlaceHolder = {open: '{>>{', close: '}<<}'};
 const reph = (ph = placeholder) => new RegExp(`${ph.open}(.*?)${ph.close}`, 'g'); // regex place holder, a.k.a reph
 
 const builtins = {
-    defaultTo: (defaultValue, value) => coll.isEmptyValue(value) ? defaultValue : value,
-    flatten: coll.flatten
+    defaultTo: (defaultValue, value) => F.isEmptyValue(value) ? defaultValue : value,
+    flatten: F.flatten
 };
 
 const jpify = path => path.startsWith('$') ? path : regex.memberOrDescendant.test(path) ? `$${path}` : `$.${path}`;
@@ -38,7 +38,7 @@ const derefFrom = document => (ref, rph = rejectPlaceHolder) => {
     path = path.startsWith('$') ? path : /*path.startsWith(':') ? @HERE : */ jpify(path);
     let value = jp.query(document, path);
     value = op === operator.plus ? value : value.pop();
-    value = coll.isEmptyValue(value) ? `${rph.open}${path}${rph.close}` : value;
+    value = F.isEmptyValue(value) ? `${rph.open}${path}${rph.close}` : value;
     return [key, value];
 };
 
@@ -48,7 +48,7 @@ function renderString(node, phValuePairs) {
         rendered = phValuePairs[0][1]; // stand alone '{{path}}' expands to value, without toString conversion
     } else {
         const replace = (acc, [ph, value]) => acc.replace(new RegExp(sx.escapeStringForRegex(ph), 'g'), value);
-        rendered = coll.reduce(replace, () => node, phValuePairs);
+        rendered = F.reduce(replace, () => node, phValuePairs);
     }
     return rendered;
 }
@@ -56,10 +56,10 @@ function renderString(node, phValuePairs) {
 function expandStringNode(node) {
     const refs = sx.tokenize(reph(), node, [], false);
     let rendered;
-    if (coll.isEmptyValue(refs)) {
+    if (F.isEmptyValue(refs)) {
         rendered = node; // string literal with no placeholders
     } else {
-        const derefedPairs = coll.map(coll.which(deref), coll.iterator(refs, {indexed: true, kv: true}));
+        const derefedPairs = F.map(F.which(deref), F.iterator(refs, {indexed: true, kv: true}));
         rendered = renderString(node, derefedPairs);
     }
     return rendered;
@@ -68,22 +68,22 @@ function expandStringNode(node) {
 function renderStringNode(node, deref) {
     const refs = sx.tokenize(reph(), node, [], false);
     let rendered;
-    if (coll.isEmptyValue(refs)) {
+    if (F.isEmptyValue(refs)) {
         rendered = node; // string literal with no placeholders
     } else {
-        const derefedPairs = coll.map(coll.which(deref), coll.iterator(refs, {indexed: true, kv: true}));
+        const derefedPairs = F.map(F.which(deref), F.iterator(refs, {indexed: true, kv: true}));
         rendered = renderString(node, derefedPairs);
     }
     return rendered;
 }
 
 const hasSpreadOperator = element => {
-    if (coll.isString(element)) {
+    if (F.isString(element)) {
         const refs = sx.tokenize(reph(), element, [], false);
-        if (coll.isEmptyValue(refs)) {
+        if (F.isEmptyValue(refs)) {
             return false;
         } else {
-            let [[key, [op, path, pipes]]] = coll.iterator(refs, {indexed: true, kv: true});
+            let [[key, [op, path, pipes]]] = F.iterator(refs, {indexed: true, kv: true});
             return operator.spread.test(op);
         }
     } else {
@@ -95,10 +95,10 @@ const forEach = (iter, deref) => {
     const [spreadableNode] = iter;
     const enumerable = renderStringNode(spreadableNode, deref);
     // TODO: consider safe spread operator `{..?{` or `{.5?{`, similar to angular safe access .?
-    if (coll.isContainer(enumerable)) {
+    if (F.isContainer(enumerable)) {
         const [childTemplate] = iter;
-        const iterator = coll.iterator(enumerable, {indexed: true}); // ...values for arrays, ...[value, key]* for objects
-        return coll.map(child => transform(childTemplate, child), enumerable);
+        const iterator = F.iterator(enumerable, {indexed: true}); // ...values for arrays, ...[value, key]* for objects
+        return F.map(child => transform(childTemplate, child), enumerable);
     } else {
         return enumerable;
     }
@@ -108,33 +108,33 @@ const forEach = (iter, deref) => {
 function renderArrayNode(node, deref) {
     // TODO: we need to know how many items ahead the .n or .... operator wants to consume to set the sticky value, CHICKEN & EGG problem???
     // TODO: we need the partitionBy function to be able to communicate to memorizeWhen decorator, how?
-    const sticky2 = coll.sticky(2, {when: coll.always(true), recharge: true});
-    const partitionedGen = coll.partitionBy(sticky2(hasSpreadOperator), node);
-    const lols = coll.map(
-        iter => iter.metadata() ? forEach(iter, deref) : coll.map(coll.identity, iter),
+    const sticky2 = F.sticky(2, {when: F.always(true), recharge: true});
+    const partitionedGen = F.partitionBy(sticky2(hasSpreadOperator), node);
+    const lols = F.map(
+        iter => iter.metadata() ? forEach(iter, deref) : F.map(F.identity, iter),
         partitionedGen
     );
-    return coll.reduce(coll.cat(), () => [], lols);
+    return F.reduce(F.cat(), () => [], lols);
 }
 
-const renderObjectNode = coll.identity;
+const renderObjectNode = F.identity;
 
 function transform(template, document) {
     let counter = 1;
     const deref = derefFrom(document);
     let result;
 
-    if (coll.isString(template)) {
+    if (F.isString(template)) {
         result = renderStringNode(template, deref)
     } else {
         result = traverse(template).map(function (node) {
             console.log('traverse :: ', counter++, this.path);
 
-            if (coll.isFunction(node)) {
+            if (F.isFunction(node)) {
                 this.update(node(document)); // R.applySpec style, discouraged since it is not declarative or serializable
-            } else if (coll.isString(node)) {
+            } else if (F.isString(node)) {
                 this.update(renderStringNode(node, deref));
-            } else if (coll.isArray(node)) {
+            } else if (F.isArray(node)) {
                 this.update(renderArrayNode(node, deref));
             } else {
                 this.update(renderObjectNode(node, deref));

@@ -386,11 +386,10 @@ describe('tokenize', () => {
                 ]
             });
         });
+
         describe('captures all operations respecting allowed order', () => {
-            // https://regex101.com/r/dMUYpQ/8
-            // const opregex = /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#\w+)?\s*\|?\s*([\!\?])?\s*\|?\s*(\+\d*)?\s*/g; // with forgiving names for tags, e.g. 123_foo_bar
-            // https://regex101.com/r/dMUYpQ/11
-            const opregex = /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#\w+)?\s*\|?\s*(\!(?:=\w+(?:\s*\:\s*["]?[a-zA-Z0-9_\s-]*["]?)*)?|\?(?:=\w+(?:\s*\:\s*["]?[a-zA-Z0-9_\s-]*["]?)*)?)?\s*\|?\s*(\+\d*)?\s*/g;
+            // https://regex101.com/r/dMUYpQ/12
+            const opregex = /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#\w+)?\s*\|?\s*([!|\?](?:=\w+(?:\s*\:\s*["]?[a-zA-Z0-9_\s-]*["]?)*)?)?\s*\|?\s*(\+\d*)?\s*/g;
 
             // const opregex = <snippet> \s*\|?\s*(:|#[a-zA-Z_]\w*) <snippet> // with valid identifier names for tags
             const tokenNames = ['inception', 'enumerate', 'symbol', 'constraints', 'query'];

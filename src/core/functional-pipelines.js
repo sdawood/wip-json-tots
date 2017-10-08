@@ -7,12 +7,12 @@ const logger = require('../util/logger');
 // functional debugging 101, peek into function names
 /**
  * debugging decorator that logs function name when the decorated function is invoked
- * @param fn: can be a function defined with the `function` keyword, or `let foo = () => {}; foo = which(foo);`
+ * fn: can be a function defined with the `function` keyword, or `let foo = () => {}; foo = which(foo);`
  */
 const which = (fn, {input = true, output = true, stringify = true} = {}) => (...args) => {
     logger.log(`${fn.name || 'function'}(${input ? JSON.stringify(args, null, 0) : '...'})`);
     const result = fn(...args);
-    if (output) logger.log(`${fn.name || 'function'} :: (${input ? JSON.stringify(args, null, 0) : '...'}) -> ${stringify ? JSON.stringify(result, null, 0) : result}`);
+    if (output) logger.log(`${fn.name || 'function'} :: (${input ? JSON.stringify(args, null, 0) : '...'}) -> ${stringify ? JSON.stringify(result, null, 0) || result: result}`);
     return result;
 };
 
@@ -67,15 +67,16 @@ const empty = function* () {
 
 const yrruc = fn => (...args) => x => fn(x, ...args); // reversed `curry`
 
-// const pipe = (...fns) => fns.reduceRight((f, g) => (...args) => f(g(...args)));
 const pipe = (...fns) => reduceRight((f, g) => (...args) => f(g(...args)), null, fns);
 
-const pipes = (...fns) => compose(result_, reduceRight((f, g) => (...args) => { const result = g(...args); return isReduced(result) ? result['@@transducer/value'] : f(result); }, null, fns));
+const pipes = (...fns) => compose(unreduced, reduceRight((f, g) => (...args) => { const result = g(...args); return isReduced(result) ? result['@@transducer/value'] : f(result); }, null, fns));
+// const pipes = (...fns) => reduceRight((f, g) => (...args) => { const result = g(...args); return isReduced(result) ? result : f(result); }, null, fns);
 
-// const compose = (...fns) => fns.reduce((f, g) => (...args) => f(g(...args)));
 const compose = (...fns) => reduce((f, g) => (...args) => f(g(...args)), null, fns);
 
-const composes = (...fns) => compose(result_, reduce((f, g) => (...args) => { const result = g(...args); return isReduced(result) ? result['@@transducer/value'] : f(result); }, null, fns));
+// reduce/reduceRight now handle early termination protocol `reduced()` and use `unreduced` as a default result function
+const composes = (...fns) => compose(unreduced, reduce((f, g) => (...args) => { const result = g(...args); return isReduced(result) ? result['@@transducer/value'] : f(result); }, null, fns));
+// const composes = (...fns) => reduce((f, g) => (...args) => { const result = g(...args); return isReduced(result) ? result : f(result); }, null, fns);
 
 const composeAsync = (...fns) => reduceAsync((fn1, fn2) => async (...args) => fn1(await fn2(...args)), undefined, fns);
 
@@ -383,7 +384,7 @@ const reduced = x => x && x['@@transducer/reduced'] ? x :
 
 const isReduced = x => x && x['@@transducer/reduced'];
 
-const result_ = result => isReduced(result) ? result['@@transducer/value'] : result;
+const unreduced = result => isReduced(result) ? result['@@transducer/value'] : result;
 
 /**
  * Implements reduce for iterables
@@ -394,7 +395,7 @@ const result_ = result => isReduced(result) ? result['@@transducer/value'] : res
  * @param initFn: produces the initial value for the accumulator
  * @returns {Accumulator-Collection}
  */
-function reduce(reducingFn, initFn, enumerable, resultFn = result_) {
+function reduce(reducingFn, initFn, enumerable, resultFn = unreduced) {
     let result;
     const iter = iterator(enumerable);
 
@@ -406,7 +407,7 @@ function reduce(reducingFn, initFn, enumerable, resultFn = result_) {
 
     for (const value of iter) {
         if (isReduced(result)) {
-            result = result['@@transducer/value'];
+            result = result['@@transducer/value']; // TODO: should we rely on the default resultFn, leaving responsibility on the user if overrided?
             break;
         }
         result = reducingFn(result, value);
@@ -414,7 +415,7 @@ function reduce(reducingFn, initFn, enumerable, resultFn = result_) {
     return resultFn(result);
 }
 
-function reduceRight(reducingFn, initFn, array, resultFn = result_) {
+function reduceRight(reducingFn, initFn, array, resultFn = unreduced) {
     let result;
     const iter = iterator(array.slice().reverse());
 
@@ -688,6 +689,7 @@ module.exports = {
     mapUpdate,
     reduced,
     isReduced,
+    unreduced,
     reduce,
     reduceRight,
     reduceAsync,

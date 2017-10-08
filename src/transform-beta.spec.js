@@ -1,7 +1,7 @@
 const {clone, flatten, countBy, keys, values, prop, map, reduce, pipe, toUpper, take, concat, flip} = require('ramda');
 const append = flip(concat); // ramda philosophically doesn't append to a string!!! https://github.com/ramda/ramda/issues/1805
 
-const coll = require('./core/collections');
+const F = require('./core/functional-pipelines');
 const {transform} = require('./transform-beta');
 
 const original = Object.freeze({
@@ -593,7 +593,7 @@ describe('transform', () => {
                 low: original.productReview.oneStar.map(x => ({criticism: x.comment})),
                 disclaimer: `Ad: ${original.comment}`
             },
-            tagsByYear: map(({timestamp}) => ({timestamp}), [...coll.iterator(original.tags)]) // TODO: (sad-face) Ramda doesn't map over iterators/generators: https://github.com/ramda/ramda/issues/1809
+            tagsByYear: map(({timestamp}) => ({timestamp}), [...F.iterator(original.tags)]) // TODO: (sad-face) Ramda doesn't map over iterators/generators: https://github.com/ramda/ramda/issues/1809
         };
 
         let result;
@@ -640,7 +640,7 @@ describe('transform', () => {
                 high: original.productReview.fiveStar.map(x => ({praise: x.comment})),
                 low: original.productReview.oneStar.map(x => ({criticism: x.comment})),
                 disclaimer: `Ad: ${original.comment}`,
-                tagsByYear: map(({timestamp}) => timestamp, [...coll.iterator(original.tags)]) // TODO: (sad-face) Ramda doesn't map over iterators/generators: https://github.com/ramda/ramda/issues/1809
+                tagsByYear: map(({timestamp}) => timestamp, [...F.iterator(original.tags)]) // TODO: (sad-face) Ramda doesn't map over iterators/generators: https://github.com/ramda/ramda/issues/1809
             }
         };
 

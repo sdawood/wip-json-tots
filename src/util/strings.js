@@ -1,9 +1,9 @@
 const jp = require('jsonpath');
 
-const coll = require('../core/collections');
+const F = require('../core/functional-pipelines');
 
 module.exports = {
-    isString: coll.isString,
+    isString: F.isString,
     escapeStringForRegex,
     tokenGenerator,
     tokenize,
@@ -76,8 +76,8 @@ function* tokenGenerator(regex, str, {sequence = false} = {}) {
 function tokenize(regex, str, {tokenNames = [], $n = true, cgindex = false, cgi0 = false, sequence = false} = {}) {
     if (sequence) {
         // interpolation, find all placeholders with the intention of later replacement, a placeholder might repeat, and there is no notion of $1 $2 as specific capture groups
-        const tokenIter = coll.iterator(tokenGenerator(regex, str, {sequence}), {indexed: true});
-        return coll.reduce((acc, [{match, token, cgi}, index]) => {
+        const tokenIter = F.iterator(tokenGenerator(regex, str, {sequence}), {indexed: true});
+        return F.reduce((acc, [{match, token, cgi}, index]) => {
             if (!cgindex && token == null) return acc;
             cgi = cgi0 ? cgi - 1 : cgi;
             // since index shift, lookup of aliases is not straight forward unless matched pattern is known upfront
@@ -125,8 +125,8 @@ function tokenize(regex, str, {tokenNames = [], $n = true, cgindex = false, cgi0
          * nth match would be [undefined, undefined, undefined, ..., cgn]
          **/
 
-        const tokenIter = coll.iterator(tokenGenerator(regex, str));
-        return coll.reduce((acc, matches) => {
+        const tokenIter = F.iterator(tokenGenerator(regex, str));
+        return F.reduce((acc, matches) => {
             for (const [index, token] of matches.entries()) {
                 if (token == null) continue;
                 const key = tokenNames[index] || `$${index + 1}`;
