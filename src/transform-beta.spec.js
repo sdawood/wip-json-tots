@@ -8,6 +8,7 @@ const original = Object.freeze({
     id: 123,
     title: 'Bicycle 123',
     description: 'Bicycle 123 is a fabulous item that you have to spend all your money on',
+    updateAt: '201710010504321',
     bicycleType: 'Hybrid',
     brand: 'Brand-Company C',
     price: 500,

@@ -130,7 +130,7 @@ describe('sync', () => {
                 expect([...result]).toEqual([]);
             });
         });
-        describe('iterator of [key, value] pais', () => {
+        describe('iterator of [key, value] pairs', () => {
             it('creates an iterator over an object', () => {
                 const result = F.iterator(dataObject, {indexed: true, kv: true});
                 expect([...result]).toEqual(dataKeyValuePairs);

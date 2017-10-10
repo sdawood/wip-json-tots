@@ -8,7 +8,7 @@ const operators = require('./core/operators');
 const placeholder = {
     full: /{([^{]*?)?{(.*?)}([^}]*)?}/g,
     // allowing for all valid jsonpath characters in #<tag>, making the path valid is currently the user responsibility, e.g. #x.y["z w"]["v.q"], standalone # uses path from context
-    operators: /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#[a-zA-Z0-9_\-\$\.\[\]"\s]*)?\s*\|?\s*([!|\?](?:=\w+(?:\s*\:\s*["]?[a-zA-Z0-9_\s\-\$]*["]?)*)?)?\s*\|?\s*(\+\d*)?\s*/g, // https://regex101.com/r/dMUYpQ/16
+    operators: /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#[a-zA-Z0-9_\-\$\.\[\]"\s]*)?\s*\|?\s*([!|\?](?:[=|~]\w+(?:\s*\:\s*["]?[a-zA-Z0-9_\s\-\$]*["]?)*)?)?\s*\|?\s*(\+\d*)?\s*/g, // https://regex101.com/r/dMUYpQ/17
     operatorNames: ['inception', 'enumerate', 'symbol', 'constraints', 'query'],
     pipes: /(?:\s*\|\s*)((?:[a-zA-Z0-9_\-\$]+|\*{1,2})(?:\s*\:\s*[a-zA-Z0-9_\s-\$]*)*)/g // https://regex101.com/r/n2qnj7/5
 };

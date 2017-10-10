@@ -83,12 +83,12 @@ const enumerate = ast => {
         '**': ast => [...F.iterator(ast.value, {indexed: true, kv: true})]
     };
 
-    const [i, ik = ''] = ast.operators.symbol;
+    const [i, ik = ''] = ast.operators.enumerate;
     const result = ops[i + ik](ast);
     return {...result, '@meta': meta};
 };
 
-const enumerateOperator = ast => F.composes(enumerate(ast), bins.has('$.operators.enumerate'));
+const enumerateOperator = F.composes(enumerate, bins.has('$.operators.enumerate'));
 
 const applyAll = ({meta, sources, tags, context}) => F.composes(enumerateOperator, symbolOperator({
     tags,
@@ -97,10 +97,11 @@ const applyAll = ({meta, sources, tags, context}) => F.composes(enumerateOperato
 
 
 module.exports = {
+    deref,
     query,
     constraints: constraintsOperator,
     symbol: symbolOperator,
-    enumerate: '',
+    enumerate: enumerateOperator,
     inception: '',
     applyAll
 };
