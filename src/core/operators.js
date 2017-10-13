@@ -29,36 +29,50 @@ const query = (ast, {meta = 2} = {}) => {
     return {...ast, '@meta': meta, value: queryOp(ast.value)};
 };
 
-const constraints = sources => (ast, {meta = 2} = {}) => {
+const constraints = ({sources, tagHandlers, config}) => (ast, {meta = 2} = {}) => {
     const ops = {
-        '?': ast => (_, defaultValue) => ast.value !== undefined ? ast : (defaultValue !== undefined ? {
+        '?': ast => (_, defaultSource = 'default', defaultValue) => ast.value !== undefined ? ast : (defaultValue !== undefined ? {
             ...ast,
             value: defaultValue
-        } : F.compose(query, deref(sources))(ast, {meta, source: 'default'})),
-        '!': ast => (altSource, defaultValue) => {
+        } : F.compose(query, deref(sources))(ast, {meta, source: defaultSource})),
+        '!': ast => (isAltLookup, altSource, ...args) => {
             let result = ast;
-            if (ast.value === undefined) {
+            if (isAltLookup) {
                 result = !F.isEmptyValue(altSource) ? F.compose(query, deref(sources))(ast, {
                     meta,
                     source: altSource
-                }) : {...result, value: undefined};
-                result = result.value !== undefined ? result : (defaultValue !== undefined ? {
+                }) : {...result, value: null};
+                const [defaultValue] = args;
+                result = result.value !== undefined ? result : (
+                    defaultValue !== undefined ? {
+                        ...result,
+                        value: defaultValue
+                    } : {
+                        ...result, value: null
+                    }
+                )
+            } else {
+                result = {
                     ...result,
-                    value: defaultValue
-                } : {...result, value: null})
+                    value: (altSource && tagHandlers[altSource]) ? tagHandlers[altSource](ast.value, ...args) : null
+                };
             }
             return result;
         }
     };
 
-    const [op, eq, ...app] = ast.operators.constraints;
+    let [op, eq, ...app] = ast.operators.constraints;
+    app = (eq && eq !== '=') ? [eq, ...app] : app; // if first char is not = put it back with the `application` string
     const args = eq ? F.pipes(bins.split(':'), bins.take(2), lst => F.map(bins.trim, lst))(app.join('')) : [];
-    const result = ops[op](ast)(...args);
+    const result = ops[op](ast)(eq === '=', ...args);
 
     return {...result, '@meta': meta};
 };
 
-const constraintsOperator = sources => F.composes(constraints(sources), bins.has('$.operators.constraints'));
+const constraintsOperator = ({sources, tagHandlers}) => F.composes(constraints({
+    sources,
+    tagHandlers
+}), bins.has('$.operators.constraints'));
 
 const symbol = ({tags, context}) => (ast, {meta = 2} = {}) => {
     const ops = {
@@ -90,10 +104,13 @@ const enumerate = ast => {
 
 const enumerateOperator = F.composes(enumerate, bins.has('$.operators.enumerate'));
 
-const applyAll = ({meta, sources, tags, context}) => F.composes(enumerateOperator, symbolOperator({
-    tags,
-    context
-}), constraintsOperator(sources), query, deref(sources));
+const applyAll = ({meta, sources, tags, tagHandlers, context, config}) => F.composes(
+    enumerateOperator,
+    symbolOperator({tags, context}),
+    constraintsOperator({sources, tagHandlers, config}),
+    query,
+    deref(sources)
+);
 
 
 module.exports = {

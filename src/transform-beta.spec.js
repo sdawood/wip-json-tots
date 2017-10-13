@@ -8,13 +8,14 @@ const original = Object.freeze({
     id: 123,
     title: 'Bicycle 123',
     description: 'Bicycle 123 is a fabulous item that you have to spend all your money on',
-    updateAt: '201710010504321',
+    updatedAt: '2017-10-13T10:37:47',
     bicycleType: 'Hybrid',
     brand: 'Brand-Company C',
     price: 500,
     color: ['Red', 'Black', 'White'],
     productCategory: 'Bicycle',
     inStok: true,
+    inStockCount: '100',
     quantityOnHand: null,
     relatedItems: [341, 472, 649],
     tags: {
@@ -71,7 +72,7 @@ const original = Object.freeze({
 });
 
 describe('transform', () => {
-    describe('deref-jsonpath:: meta-0/1 simple interpolation with query modifiers', () => {
+    describe.only('deref-jsonpath:: meta-0/1 simple interpolation with query modifiers', () => {
         const template = {
             name: '{{title}} [{{description}}] http://items/{{title}}',
             reviews: {
@@ -135,7 +136,7 @@ describe('transform', () => {
         });
     });
 
-    describe('deref-jsonpath:: meta-0/1/2 simple interpolation with constrains <- query modifiers with [ NO ] arguments', () => {
+    describe.only('deref-jsonpath:: meta-0/1/2 simple interpolation with constrains <- query modifiers with [ NO ] arguments', () => {
         const template = {
             name: '{{title}} [{{description}}] http://items/{{title}}',
             reviews: {
@@ -194,9 +195,11 @@ describe('transform', () => {
         });
     });
 
-    describe('deref-jsonpath:: meta-0/1/2 simple interpolation with constrains <- query modifiers with arguments', () => {
+    describe.only('deref-jsonpath:: meta-0/1/2 simple interpolation with constrains <- query modifiers with arguments', () => {
         const template = {
             name: '{{title}} [{{description}}] http://items/{{title}}',
+            updatedAt: '{!asDate{updatedAt}}',
+            inStockCount: '{!asInt{inStockCount}}',
             reviews: {
                 eula: 'read and agree and let us get on with it',
                 high: '{{productReview.fiveStar[0].comment}}',
@@ -230,6 +233,8 @@ describe('transform', () => {
 
         const expectedResult = {
             name: `${original.title} [${original.description}] http://items/${original.title}`,
+            updatedAt: new Date(original.updatedAt),
+            inStockCount: parseInt(original.inStockCount, 10),
             reviews: {
                 eula: 'read and agree and let us get on with it',
                 high: original.productReview.fiveStar[0].comment,
@@ -287,227 +292,7 @@ describe('transform', () => {
         });
     });
 
-    describe('deref-jsonpath:: meta-0/1/2 simple interpolation with symbol <- constrains <- query modifiers with arguments', () => {
-        const template = {
-            name: '{#{title}} [{{description}}] http://items/{{title}}',
-            reviews: {
-                eula: 'read and agree and let us get on with it',
-                high: '{#{productReview.fiveStar[0].comment}}',
-                low: '{#{productReview.oneStar[0].comment}}',
-                disclaimer: 'Ad: {{comment}}'
-            },
-            safety: '{{["Safety.Warning.On.Root"]}}',
-            topRaters: '{{productReview.fiveStar[0]["first.name"]}} - {{productReview.fiveStar[1]["first.name"]}} - {{productReview.oneStar[0]["first.name"]}}',
-            topTaggers: '{{tags["tag-name-with-dash"].author}} - {{tags["tag name with spaces"].author}} - {{tags["tag.name.with.dots"].author}}',
-            scores: '{+2{productReview..score}}', // <- * means get one or more search results. The value is substituted as is unless the place holder is a part of a bigger string, in that case it is replaced into the string template
-            oneScore: '{{productReview..score}}', // <- * means get exactly one search results. The value is substituted as is unless the place holder is a part of a bigger string, in that case it is replaced into the string template
-            users: '{+100{..author}}', // take all matches
-            top5users: '{+5{..author}}', // take n matches
-            optional1: '{?=default {["not.there"]}}', // lookup from sources['default']
-            optional2: '{?=default:OPTIONAL DEFAULT VALUE 2 {["not.there"]}}', // use default value provided
-            optional2Quoted: '{?=default:"OPTIONAL DEFAULT VALUE 2" {["not.there"]}}', // use default value provided
-            optional3: '{?=default:optional-default-value-3 {["not.there"]}}', // use default value provided
-            optionalInContext1: 'Value for not.there = {?=default: {["not.there"]}}', // use default value provided ''
-            optionalInContext2: 'Value for not.there = {?=default:"" {["not.there"]}}', // use default value provided ''
-            optionalInContext3: 'Value for not.there = {?=default:default value {["not.there"]}}', // use default value provided ''
-            optionalInContext3Quoted: 'Value for not.there = {?=default:"default value in quotes" {["not.there"]}}', // use default value provided ''
-            required: '{!{["not.there"]}}', // should be set to null
-            required1: '{!={["not.there"]}}', // should be set to null
-            required2: '{# | !=altSource1{["not.there"]}}', // lookup value in alt-source, else null
-            required3: '{!=altSource1{["not.there.in.alt.source"]}}', // lookup value in alt-source, else null
-            required4: '{#alt.altSource1["not.there.in.alt.source"] | !=altSource1:ALT_VALUE_DEFAULT{["not.there.in.alt.source"]}}', // lookup value in alt-source, else default
-            required5: '{!=altSourceMissing{["not.there"]}}', // should be set to null
-            required6: '{!=altSourceMissing{["not.there.for.sure"]}}', // should be set to null
-            required7: '{#alt.altSourceMissing["not.there.for.sure"] | !=altSourceMissing:ALT_VALUE_DEFAULT{["not.there.for.sure"]}}' // should be set to default
-        };
-
-        const expectedResult = {
-            name: `${original.title} [${original.description}] http://items/${original.title}`,
-            reviews: {
-                eula: 'read and agree and let us get on with it',
-                high: original.productReview.fiveStar[0].comment,
-                low: original.productReview.oneStar[0].comment,
-                disclaimer: `Ad: ${original.comment}`
-            },
-            safety: original['Safety.Warning.On.Root'],
-            topRaters: 'user1 - user2 - user3',
-            topTaggers: "memberUser4 - memberUser5 - memberUser6",
-            scores: [5, 5],
-            oneScore: 1,
-            users: ["anonymousUser1", "anonymousUser2", "memberUser3", "memberUser4", "memberUser5", "memberUser6", "user1@domain1.com", "user2@domain2.com", "user3@domain3.com"],
-            top5users: ["anonymousUser1", "anonymousUser2", "memberUser3", "memberUser4", "memberUser5"],
-            optional1: "@default::default-value", // lookup from sources['default']
-            optional2: "OPTIONAL DEFAULT VALUE 2", // use default value provided
-            optional2Quoted: '"OPTIONAL DEFAULT VALUE 2"', // use default value provided
-            optional3: "optional-default-value-3", // use default value provided
-            optionalInContext1: 'Value for not.there = ',
-            optionalInContext2: 'Value for not.there = ""',
-            optionalInContext3: 'Value for not.there = default value',
-            optionalInContext3Quoted: 'Value for not.there = "default value in quotes"',
-            required: null, // should be set to null
-            required1: null, // should be set to null
-            required2: '@alt-source::alt-value', // lookup value in alt-source, else null
-            required3: null, // lookup value in alt-source, else null
-            required4: 'ALT_VALUE_DEFAULT', // lookup value in alt-source, else default
-            required5: null, // should be set to null
-            required6: null, // should be set to null
-            required7: 'ALT_VALUE_DEFAULT' // should be set to default
-        };
-
-        let result;
-        let templateClone = clone(template);
-        const documentClone = clone(original);
-        let tags;
-
-        beforeEach(() => {
-            tags = {};
-            result = transform(templateClone, {
-                sources: {
-                    'default': {'not.there': '@default::default-value'},
-                    altSource1: {'not.there': '@alt-source::alt-value'}
-                }, tags
-            })(documentClone);
-        });
-
-        it('handles 1..* levels of nesting, and special characters in attribute names', () => {
-            expect(result).toEqual(expectedResult);
-        });
-
-        it('captures all the hash-tags into the tags {}', () => {
-            expect(tags).toEqual({
-                "alt": {
-                    "altSource1": {"not.there.in.alt.source": "ALT_VALUE_DEFAULT"},
-                    "altSourceMissing": {"not.there.for.sure": "ALT_VALUE_DEFAULT"}
-                },
-                "name": "Bicycle 123",
-                "required2": "@alt-source::alt-value",
-                "reviews": {
-                    "high": "Excellent! Can't recommend it highly enough! Buy it!",
-                    "low": "Terrible product! Do no buy this."
-                }
-            });
-        });
-
-        it('does not mutate the template', () => {
-            expect(templateClone).toEqual(template);
-        });
-
-        it('does not mutate the source', () => {
-            expect(documentClone).toEqual(original);
-        });
-    });
-
-    describe('deref-jsonpath:: meta-0/1/2 simple interpolation with enumerate <- symbol <- constrains <- query modifiers with arguments', () => {
-        const template = {
-            name: '{#{title}} [{{description}}] http://items/{{title}}',
-            reviews: {
-                eula: 'read and agree and let us get on with it',
-                high: '{#{productReview.fiveStar[0].comment}}',
-                low: '{#{productReview.oneStar[0].comment}}',
-                disclaimer: 'Ad: {{comment}}'
-            },
-            safety: '{{["Safety.Warning.On.Root"]}}',
-            topRaters: '{{productReview.fiveStar[0]["first.name"]}} - {{productReview.fiveStar[1]["first.name"]}} - {{productReview.oneStar[0]["first.name"]}}',
-            topTaggers: '{{tags["tag-name-with-dash"].author}} - {{tags["tag name with spaces"].author}} - {{tags["tag.name.with.dots"].author}}',
-            scores: '{+2{productReview..score}}', // <- * means get one or more search results. The value is substituted as is unless the place holder is a part of a bigger string, in that case it is replaced into the string template
-            oneScore: '{{productReview..score}}', // <- * means get exactly one search results. The value is substituted as is unless the place holder is a part of a bigger string, in that case it is replaced into the string template
-            users: '{+100{..author}}', // take all matches
-            top5users: '{+5{..author}}', // take n matches
-            optional1: '{?=default {["not.there"]}}', // lookup from sources['default']
-            optional2: '{?=default:OPTIONAL DEFAULT VALUE 2 {["not.there"]}}', // use default value provided
-            optional2Quoted: '{?=default:"OPTIONAL DEFAULT VALUE 2" {["not.there"]}}', // use default value provided
-            optional3: '{?=default:optional-default-value-3 {["not.there"]}}', // use default value provided
-            optionalInContext1: 'Value for not.there = {?=default: {["not.there"]}}', // use default value provided ''
-            optionalInContext2: 'Value for not.there = {?=default:"" {["not.there"]}}', // use default value provided ''
-            optionalInContext3: 'Value for not.there = {?=default:default value {["not.there"]}}', // use default value provided ''
-            optionalInContext3Quoted: 'Value for not.there = {?=default:"default value in quotes" {["not.there"]}}', // use default value provided ''
-            required: '{!{["not.there"]}}', // should be set to null
-            required1: '{!={["not.there"]}}', // should be set to null
-            required2: '{# | !=altSource1{["not.there"]}}', // lookup value in alt-source, else null
-            required3: '{!=altSource1{["not.there.in.alt.source"]}}', // lookup value in alt-source, else null
-            required4: '{#alt.altSource1["not.there.in.alt.source"] | !=altSource1:ALT_VALUE_DEFAULT{["not.there.in.alt.source"]}}', // lookup value in alt-source, else default
-            required5: '{!=altSourceMissing{["not.there"]}}', // should be set to null
-            required6: '{!=altSourceMissing{["not.there.for.sure"]}}', // should be set to null
-            required7: '{#alt.altSourceMissing["not.there.for.sure"] | !=altSourceMissing:ALT_VALUE_DEFAULT{["not.there.for.sure"]}}' // should be set to default
-        };
-
-        const expectedResult = {
-            name: `${original.title} [${original.description}] http://items/${original.title}`,
-            reviews: {
-                eula: 'read and agree and let us get on with it',
-                high: original.productReview.fiveStar[0].comment,
-                low: original.productReview.oneStar[0].comment,
-                disclaimer: `Ad: ${original.comment}`
-            },
-            safety: original['Safety.Warning.On.Root'],
-            topRaters: 'user1 - user2 - user3',
-            topTaggers: "memberUser4 - memberUser5 - memberUser6",
-            scores: [5, 5],
-            oneScore: 1,
-            users: ["anonymousUser1", "anonymousUser2", "memberUser3", "memberUser4", "memberUser5", "memberUser6", "user1@domain1.com", "user2@domain2.com", "user3@domain3.com"],
-            top5users: ["anonymousUser1", "anonymousUser2", "memberUser3", "memberUser4", "memberUser5"],
-            optional1: "@default::default-value", // lookup from sources['default']
-            optional2: "OPTIONAL DEFAULT VALUE 2", // use default value provided
-            optional2Quoted: '"OPTIONAL DEFAULT VALUE 2"', // use default value provided
-            optional3: "optional-default-value-3", // use default value provided
-            optionalInContext1: 'Value for not.there = ',
-            optionalInContext2: 'Value for not.there = ""',
-            optionalInContext3: 'Value for not.there = default value',
-            optionalInContext3Quoted: 'Value for not.there = "default value in quotes"',
-            required: null, // should be set to null
-            required1: null, // should be set to null
-            required2: '@alt-source::alt-value', // lookup value in alt-source, else null
-            required3: null, // lookup value in alt-source, else null
-            required4: 'ALT_VALUE_DEFAULT', // lookup value in alt-source, else default
-            required5: null, // should be set to null
-            required6: null, // should be set to null
-            required7: 'ALT_VALUE_DEFAULT' // should be set to default
-        };
-
-        let result;
-        let templateClone = clone(template);
-        const documentClone = clone(original);
-        let tags;
-
-        beforeEach(() => {
-            tags = {};
-            result = transform(templateClone, {
-                sources: {
-                    'default': {'not.there': '@default::default-value'},
-                    altSource1: {'not.there': '@alt-source::alt-value'}
-                }, tags
-            })(documentClone);
-        });
-
-        it('handles 1..* levels of nesting, and special characters in attribute names', () => {
-            expect(result).toEqual(expectedResult);
-        });
-
-        it('captures all the hash-tags into the tags {}', () => {
-            expect(tags).toEqual({
-                "alt": {
-                    "altSource1": {"not.there.in.alt.source": "ALT_VALUE_DEFAULT"},
-                    "altSourceMissing": {"not.there.for.sure": "ALT_VALUE_DEFAULT"}
-                },
-                "name": "Bicycle 123",
-                "required2": "@alt-source::alt-value",
-                "reviews": {
-                    "high": "Excellent! Can't recommend it highly enough! Buy it!",
-                    "low": "Terrible product! Do no buy this."
-                }
-            });
-        });
-
-        it('does not mutate the template', () => {
-            expect(templateClone).toEqual(template);
-        });
-
-        it('does not mutate the source', () => {
-            expect(documentClone).toEqual(original);
-        });
-    });
-
-    describe('simple template array mapping interpolation', () => {
+    describe        ('simple template array mapping interpolation', () => {
         const template = {
             name: '{{title}}',
             reviews: {

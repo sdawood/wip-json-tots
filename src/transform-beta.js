@@ -1,14 +1,16 @@
 const traverse = require('traverse');
 const jp = require('jsonpath');
 
+const defaultConfig = require('./config.json');
 const F = require('./core/functional-pipelines');
 const sx = require('./util/strings');
+const bins = require('./core/builtins');
 const operators = require('./core/operators');
 
 const placeholder = {
     full: /{([^{]*?)?{(.*?)}([^}]*)?}/g,
     // allowing for all valid jsonpath characters in #<tag>, making the path valid is currently the user responsibility, e.g. #x.y["z w"]["v.q"], standalone # uses path from context
-    operators: /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#[a-zA-Z0-9_\-\$\.\[\]"\s]*)?\s*\|?\s*([!|\?](?:[=|~]\w+(?:\s*\:\s*["]?[a-zA-Z0-9_\s\-\$]*["]?)*)?)?\s*\|?\s*(\+\d*)?\s*/g, // https://regex101.com/r/dMUYpQ/17
+    operators: /\s*(\.{2,}|\.\d{1,3})?\s*\|?\s*(\*{1,2})?\s*\|?\s*(:|#[a-zA-Z0-9_\-\$\.\[\]"\s]*)?\s*\|?\s*([!|\?](?:=?\w+(?:\s*\:\s*["]?[a-zA-Z0-9_\s\-\$]*["]?)*)?)?\s*\|?\s*(\+\d*)?\s*/g, // https://regex101.com/r/dMUYpQ/17
     operatorNames: ['inception', 'enumerate', 'symbol', 'constraints', 'query'],
     pipes: /(?:\s*\|\s*)((?:[a-zA-Z0-9_\-\$]+|\*{1,2})(?:\s*\:\s*[a-zA-Z0-9_\s-\$]*)*)/g // https://regex101.com/r/n2qnj7/5
 };
@@ -77,35 +79,37 @@ function renderString(node, derefedList) {
     return rendered;
 }
 
-function renderStringNode(contextRef, {meta = 0, sources = {'default': {}}, tags = {}} = {}) {
+function renderStringNode(contextRef, {meta = 0, sources = {'default': {}}, tags = {}, tagHandlers = {}, config} = {}) {
     const refList = rephs(contextRef.node);
     if (F.isReduced(refList)) {
-        return F.unreduced(contextRef.node);
+        return {rendered: F.unreduced(refList).value};
     }
 
-    const derefedList = F.map(operators.applyAll({meta, sources, tags, context: contextRef}), refList);
+    const derefedList = F.map(operators.applyAll({meta, sources, tags, tagHandlers, context: contextRef, config}), refList);
     const rendered = renderString(contextRef.node, derefedList);
-    return rendered;
+    return {rendered, asts: derefedList};
 }
 
 const renderObjectNode = F.identity;
 
-const transform = (template, {meta = 0, sources = {'default': {}}, tags = {}} = {}) => document => {
+const transform = (template, {meta = 0, sources = {'default': {}}, tags = {}, tagHandlers = {}, config = defaultConfig} = {}) => document => {
     let counter = 1;
     let result;
 
+    tagHandlers = {...bins.tagHandlers, ...tagHandlers};
     if (F.isString(template)) {
-        result = renderStringNode(template, {meta, sources: {...sources, origin: document}});
+        ({rendered: result} = renderStringNode(template, {meta, sources: {...sources, origin: document}, tags, tagHandlers, config}));
     } else {
         result = traverse(template).map(function (node) {
             console.log('traverse :: ', counter++, this.path);
             const contextRef = this;
             let rendered;
+            let asts;
 
             if (F.isFunction(node)) {
                 rendered = node(document); // R.applySpec style, discouraged since it is not declarative or serializable
             } else if (F.isString(node)) {
-                rendered = renderStringNode(contextRef, {meta, sources: {...sources, origin: document}, tags});
+                ({rendered, asts} = renderStringNode(contextRef, {meta, sources: {...sources, origin: document}, tags, tagHandlers, config}));
             } else if (F.isArray(node)) {
                 // rendered = renderArrayNode(node, deref);
                 rendered = node;
@@ -117,7 +121,17 @@ const transform = (template, {meta = 0, sources = {'default': {}}, tags = {}} = 
             if (this.isRoot) return;
 
             if (rendered === undefined) {
-                this.remove(true); // JSON doesn't eat undefined, drop the key and stop traversing this subtree
+                if (jp.value(config, '$.operators.constraints["?"].drop')) {
+                    this.remove(true); // JSON doesn't eat undefined, drop the key and stop traversing this subtree
+                } else {
+                    this.update(null);
+                }
+            } else if (rendered === null) {
+                if (jp.value(config, '$.operators.constraints["!"].nullable')) {
+                    this.update(null);
+                } else {
+                    throw new Error(`Missing required attribute [${jp.stringify(this.path)}: ${asts ? asts[0].source : ''}]`);
+                }
             } else {
                 this.update(rendered);
             }
