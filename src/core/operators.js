@@ -13,7 +13,16 @@ const regex = {
 const jpify = path => path.startsWith('$') ? path : regex.memberOrDescendant.test(path) ? `$${path}` : `$.${path}`;
 
 const deref = sources => (ast, {meta = 1, source = 'origin'} = {}) => {
-    const values = jp.query(sources[source] || {}, jpify(ast.path));
+    const document = sources[source];
+    let values;
+    if (F.isNil(document)) {
+        values = [];
+    } else if (!F.isContainer(document)) {
+        meta = 0;
+        values = [document]; // literal value
+    } else {
+        values = jp.query(document, jpify(ast.path));
+    }
     return {...ast, '@meta': meta, value: values};
 };
 
@@ -91,10 +100,11 @@ const symbol = ({tags, context}) => (ast, {meta = 2} = {}) => {
 
 const symbolOperator = ({tags, context}) => F.composes(symbol({tags, context}), bins.has('$.operators.symbol'));
 
-const enumerate = ast => {
+const enumerate = (ast, {meta = 4} = {}) => {
     const ops = {
-        '*': ast => [...F.iterator(ast.value)],
-        '**': ast => [...F.iterator(ast.value, {indexed: true, kv: true})]
+        '*': ast => ({...ast, value: [...F.iterator(ast.value)]}),
+        // '**': ast => ({...ast, value: [...F.iterator(ast.value, {indexed: true, kv: true})]}) // TODO: do scenarios of ** python style k/v pairs expansion fit with jsonpath?
+        '**': ast => ({...ast, value: [...F.iterator(ast.value)]})
     };
 
     const [i, ik = ''] = ast.operators.enumerate;
@@ -112,6 +122,13 @@ const applyAll = ({meta, sources, tags, tagHandlers, context, config}) => F.comp
     deref(sources)
 );
 
+const inception = ast => {
+    const [dot, repeat, ...rest] = ast.operators.inception;
+    const $depth = repeat !== '.' ? parseInt([repeat, ...rest].join(''), 10) : rest.length + 1;
+    return {...ast, $depth};
+};
+
+const inceptionOperator = F.composes(inception, bins.has('$.operators.inception'));
 
 module.exports = {
     deref,
@@ -119,6 +136,6 @@ module.exports = {
     constraints: constraintsOperator,
     symbol: symbolOperator,
     enumerate: enumerateOperator,
-    inception: '',
+    inception: inceptionOperator,
     applyAll
 };

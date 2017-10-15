@@ -211,72 +211,72 @@ describe('sync', () => {
     });
 
     describe('zipWith, zip', () => {
-        it('zips two enumerators into one iterator applying fn([item1, item2]) that can be reduced(append)', () => {
+        it('zips two enumerables into one iterator applying fn([item1, item2]) that can be reduced(append)', () => {
             const expectedResult = [["1", "11"], ["2", "12"], ["3", "13"], ["4", "14"], ["5", "15"], ["6", "16"], ["7", "17"], ["8", "18"], ["9", "19"], ["10", "20"]];
-            const enumerator2 = F.iterator(F.map(fn1, dataIterator()));
-            const combinedIterator = F.zipWith(dataGenerator(), enumerator2, (...args) => args.map(x => `${x}`));
+            const enumerable2 = F.iterator(F.map(fn1, dataIterator()));
+            const combinedIterator = F.zipWith(dataGenerator(), enumerable2, (...args) => args.map(x => `${x}`));
             const result = F.reduce(F.append(), () => [], combinedIterator);
             expect(result).toEqual(expectedResult);
         });
-        it('zips two enumerators into one iterator that can be reduced(append)', () => {
+        it('zips two enumerables into one iterator that can be reduced(append)', () => {
             const expectedResult = [[1, 11], [2, 12], [3, 13], [4, 14], [5, 15], [6, 16], [7, 17], [8, 18], [9, 19], [10, 20]];
-            const enumerator2 = F.iterator(F.map(fn1, dataIterator()));
-            const combinedIterator = F.zip(dataGenerator(), enumerator2);
+            const enumerable2 = F.iterator(F.map(fn1, dataIterator()));
+            const combinedIterator = F.zip(dataGenerator(), enumerable2);
             const result = F.reduce(F.append(), () => [], combinedIterator);
             expect(result).toEqual(expectedResult);
         });
-        it('zips two enumerators into one iterator that can be reduced(concat)', () => {
+        it('zips two enumerables into one iterator that can be reduced(concat)', () => {
             const expectedResult = [1, 11, 2, 12, 3, 13, 4, 14, 5, 15, 6, 16, 7, 17, 8, 18, 9, 19, 10, 20];
-            const enumerator2 = F.iterator(F.map(fn1, dataIterator()));
-            const combinedIterator = F.zip(dataGenerator(), enumerator2);
+            const enumerable2 = F.iterator(F.map(fn1, dataIterator()));
+            const combinedIterator = F.zip(dataGenerator(), enumerable2);
             const result = F.reduce(F.concat(), () => [], combinedIterator);
             expect(result).toEqual(expectedResult);
         });
     });
 
     describe('take', () => {
-        it('takes first n items from an enumerator', () => {
-            const prefixEnumerator = F.take(5, dataGenerator());
-            expect(F.reduce(F.append(), () => [], prefixEnumerator)).toEqual(dataIterable.slice(0, 5))
+        it('takes first n items from an enumerable', () => {
+            const prefixEnumerable = F.take(5, dataGenerator());
+            expect(F.reduce(F.append(), () => [], prefixEnumerable)).toEqual(dataIterable.slice(0, 5))
         });
         it('handles n = 0', () => {
-            const prefixEnumerator = F.take(0, dataGenerator());
-            expect(F.reduce(F.append(), () => [], prefixEnumerator)).toEqual([])
+            const prefixEnumerable = F.take(0, dataGenerator());
+            expect(F.reduce(F.append(), () => [], prefixEnumerable)).toEqual([])
         });
         it('handles n < 0', () => {
-            const prefixEnumerator = F.take(-1, dataGenerator());
-            expect(F.reduce(F.append(), () => [], prefixEnumerator)).toEqual([])
+            const prefixEnumerable = F.take(-1, dataGenerator());
+            expect(F.reduce(F.append(), () => [], prefixEnumerable)).toEqual([])
         });
         it('handles n > sequence length', () => {
-            const prefixEnumerator = F.take(100, dataGenerator());
-            expect(F.reduce(F.append(), () => [], prefixEnumerator)).toEqual(dataIterable)
+            const prefixEnumerable = F.take(100, dataGenerator());
+            expect(F.reduce(F.append(), () => [], prefixEnumerable)).toEqual(dataIterable)
         });
         it('handles empty sequences', () => {
-            const prefixEnumerator = F.take(5, F.empty());
-            expect(F.reduce(F.append(), () => [], prefixEnumerator)).toEqual([])
+            const prefixEnumerable = F.take(5, F.empty());
+            expect(F.reduce(F.append(), () => [], prefixEnumerable)).toEqual([])
         });
     });
 
     describe('skip', () => {
-        it('skips first n items from an enumerator', () => {
-            const suffixEnumerator = F.skip(5, dataGenerator());
-            expect(F.reduce(F.append(), () => [], suffixEnumerator)).toEqual(dataIterable.slice(5))
+        it('skips first n items from an enumerable', () => {
+            const suffixEnumerable = F.skip(5, dataGenerator());
+            expect(F.reduce(F.append(), () => [], suffixEnumerable)).toEqual(dataIterable.slice(5))
         });
         it('handles n = 0', () => {
-            const suffixEnumerator = F.skip(0, dataGenerator());
-            expect(F.reduce(F.append(), () => [], suffixEnumerator)).toEqual(dataIterable)
+            const suffixEnumerable = F.skip(0, dataGenerator());
+            expect(F.reduce(F.append(), () => [], suffixEnumerable)).toEqual(dataIterable)
         });
         it('handles n < 0', () => {
-            const suffixEnumerator = F.skip(-1, dataGenerator());
-            expect(F.reduce(F.append(), () => [], suffixEnumerator)).toEqual(dataIterable)
+            const suffixEnumerable = F.skip(-1, dataGenerator());
+            expect(F.reduce(F.append(), () => [], suffixEnumerable)).toEqual(dataIterable)
         });
         it('handles n > sequence length', () => {
-            const suffixEnumerator = F.skip(100, dataGenerator());
-            expect(F.reduce(F.append(), () => [], suffixEnumerator)).toEqual([])
+            const suffixEnumerable = F.skip(100, dataGenerator());
+            expect(F.reduce(F.append(), () => [], suffixEnumerable)).toEqual([])
         });
         it('handles empty sequences', () => {
-            const suffixEnumerator = F.skip(5, F.empty());
-            expect(F.reduce(F.append(), () => [], suffixEnumerator)).toEqual([])
+            const suffixEnumerable = F.skip(5, F.empty());
+            expect(F.reduce(F.append(), () => [], suffixEnumerable)).toEqual([])
         });
     });
 
@@ -364,47 +364,65 @@ describe('sync', () => {
     });
 
     describe('sticky a.k.a memorizeWhen', () => {
-        const data1 = [1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1];
-        const expected1_2_recharge = [1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1]; // recharge: true, recharge sticky counter with every new positive hit
+        const data1 =                    [1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1];
+        const expected1_2_recharge =     [1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1]; // recharge: true, recharge sticky counter with every new positive hit
         const expected1_2_not_recharge = [1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1]; // recharge: false, accidentally equal!!
-        const data2 = [0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1];
-        const expected2_2_recharge = [0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1]; // recharge: true
+        const data2 =                    [0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1];
+        const expected2_2_recharge =     [0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1]; // recharge: true
         const expected2_2_not_recharge = [0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1];
-        const data3 = [0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1];
-        const expected3_3_recharge = [0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1]; // recharge: true
+        const data3 =                    [0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1];
+        const expected3_3_recharge =     [0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1]; // recharge: true
         const expected3_3_not_recharge = [0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1];
 
-        describe('with recharge = false', () => {
+        describe('with recharge = true', () => {
             it('1) remembers the match-result n times, recharging the counter with every positive hit', () => {
-                const stickyN = F.sticky(2, {when: x => 1, recharge: true})(F.identity);
+                const stickyN = F.sticky(1, {when: x => x === 1, recharge: true})(F.identity);
                 const result = F.map(stickyN, data1);
                 expect(result).toEqual(expected1_2_recharge);
             });
             it('2) remembers the match-result n times, recharging the counter with every positive hit', () => {
-                const stickyN = F.sticky(2, {when: x => 1, recharge: true})(F.identity);
+                const stickyN = F.sticky(1, {when: x => x === 1, recharge: true})(F.identity);
                 const result = F.map(stickyN, data2);
                 expect(result).toEqual(expected2_2_recharge);
             });
             it('3) remembers the match-result n times, recharging the counter with every positive hit', () => {
-                const stickyN = F.sticky(3, {when: x => 1, recharge: true})(F.identity);
+                const stickyN = F.sticky(2, {when: x => x === 1, recharge: true})(F.identity);
                 const result = F.map(stickyN, data3);
                 expect(result).toEqual(expected3_3_recharge);
             });
         });
 
-        describe('with recharge = true', () => {
+        describe('with recharge = false', () => {
             it('1) remembers the match-result n times, skipping the function invocation while in `repeat` mode', () => {
-                const stickyN = F.sticky(2, {when: x => 1, recharge: false})(F.identity);
+                const stickyN = F.sticky(1, {when: x => x === 1, recharge: false})(F.identity);
                 const result = F.map(stickyN, data1);
                 expect(result).toEqual(expected1_2_not_recharge);
             });
             it('2) remembers the match-result n times, skipping the function invocation while in `repeat` mode', () => {
-                const stickyN = F.sticky(2, {when: x => 1, recharge: false})(F.identity);
+                const stickyN = F.sticky(1, {when: x => x === 1, recharge: false})(F.identity);
                 const result = F.map(stickyN, data2);
                 expect(result).toEqual(expected2_2_not_recharge);
             });
             it('3) remembers the match-result n times, skipping the function invocation while in `repeat` mode', () => {
-                const stickyN = F.sticky(3, {when: x => 1, recharge: false})(F.identity);
+                const stickyN = F.sticky(2, {when: x => x === 1, recharge: false})(F.identity);
+                const result = F.map(stickyN, data3);
+                expect(result).toEqual(expected3_3_not_recharge);
+            });
+        });
+
+        describe('with context adjusted n & recharge = false', () => {
+            it('1) remembers the match-result n times, skipping the function invocation while in `repeat` mode', () => {
+                const stickyN = F.sticky(10, {when: (r2, r1, ctx) => {ctx.n = 1; return r2 === 1}, recharge: false})(F.identity);
+                const result = F.map(stickyN, data1);
+                expect(result).toEqual(expected1_2_not_recharge);
+            });
+            it('2) remembers the match-result n times, skipping the function invocation while in `repeat` mode', () => {
+                const stickyN = F.sticky(10, {when: (r2, r1, ctx) => {ctx.n = 1; return r2 === 1}, recharge: false})(F.identity);
+                const result = F.map(stickyN, data2);
+                expect(result).toEqual(expected2_2_not_recharge);
+            });
+            it('3) remembers the match-result n times, skipping the function invocation while in `repeat` mode', () => {
+                const stickyN = F.sticky(10, {when: (r2, r1, ctx) => {ctx.n = 2; return r2 === 1}, recharge: false})(F.identity);
                 const result = F.map(stickyN, data3);
                 expect(result).toEqual(expected3_3_not_recharge);
             });

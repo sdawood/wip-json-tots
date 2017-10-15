@@ -114,20 +114,20 @@ function* entries(o, values = false, kv = true) {
         kv ? yield* zip(entryKeys, entryKeys.map(k => o[k])) : yield* zip(entryKeys.map(k => o[k]), entryKeys);
     }
 }
-function* zipWithGen(enumerator1, enumerator2, fn = (x1, x2) => [x1, x2]) {
+function* zipWithGen(enumerable1, enumerable2, fn = (x1, x2) => [x1, x2]) {
     let count = 0;
-    enumerator1 = iterator(enumerator1);
-    enumerator2 = iterator(enumerator2);
-    for (const e1 of enumerator1) {
-        const {value: e2, done} = enumerator2.next();
+    enumerable1 = iterator(enumerable1);
+    enumerable2 = iterator(enumerable2);
+    for (const e1 of enumerable1) {
+        const {value: e2, done} = enumerable2.next();
         if (done) return count;
         yield fn(e1, e2); // cater for mutable and immutable collections
         count++;
     }
 }
 
-const zipWith = (enumerator1, enumerator2, fn) => iterator(zipWithGen(enumerator1, enumerator2, fn));
-const zip = (enumerator1, enumerator2) => zipWith(enumerator1, enumerator2);
+const zipWith = (enumerable1, enumerable2, fn) => iterator(zipWithGen(enumerable1, enumerable2, fn));
+const zip = (enumerable1, enumerable2) => zipWith(enumerable1, enumerable2);
 /*END collections module ============================================================*/
 
 const document = {

@@ -118,6 +118,33 @@ const isEmptyValue = x => isNil(x) || !isNumber(x) && !isFunction(x) && Object.k
 // const isObject = o => o && (typeof o === 'object' || !isFunction(o));
 // const isArray = o => Array.isArray(o);
 const isContainer = o => isObject(o) || isArray(o);
+const isLiteral = o => !isContainer(o);
+
+/******************* [ Logic ] *******************/
+
+/**
+ * Creates a function that will process either the `onTrue` or the `onFalse`
+ * function depending upon the result of the `condition` predicate.
+ *
+ * @func
+ * @category Logic
+ * @sig (*... -> Boolean) -> (*... -> *) -> (*... -> *) -> (*... -> *)
+ * @param {Function} condition A predicate function
+ * @param {Function} onTrue A function to invoke when the `condition` evaluates to a truthy value.
+ * @param {Function} onFalse A function to invoke when the `condition` evaluates to a falsy value.
+ * @return {Function} A new unary function that will process either the `onTrue` or the `onFalse`
+ *                    function depending upon the result of the `condition` predicate.
+ * @example
+ *
+ *      var incCount = ifElse(
+ *        isEven,
+ *        inc,
+ *        dec
+ *      );
+ *      incCount(2);           //=> 3
+ *      incCount(3); //=> 1
+ */
+const ifElse = predicate => (trueFn = identity) => (falseFn = identity) => (...args) => predicate(...args) ? trueFn(...args) : falseFn(...args);
 
 /******************* [ Generators ] *******************/
 
@@ -161,24 +188,24 @@ function* entries(o, values = false, kv = true) {
  *
  * Lodash and ramda only support concrete arrays!
  *
- * @param enumerator1: enumerable, i.e. iterable, iterator or generator
- * @param enumerator2: enumerable, i.e. iterable, iterator or generator
+ * @param enumerable1: enumerable, i.e. iterable, iterator or generator
+ * @param enumerable2: enumerable, i.e. iterable, iterator or generator
  * @param fn: pair transform function of arity 2
  */
-function* zipWithGen(enumerator1, enumerator2, fn = (x1, x2) => [x1, x2]) {
+function* zipWithGen(enumerable1, enumerable2, fn = (x1, x2) => [x1, x2]) {
     let count = 0;
-    enumerator1 = iterator(enumerator1);
-    enumerator2 = iterator(enumerator2);
-    for (const e1 of enumerator1) {
-        const {value: e2, done} = enumerator2.next();
+    enumerable1 = iterator(enumerable1);
+    enumerable2 = iterator(enumerable2);
+    for (const e1 of enumerable1) {
+        const {value: e2, done} = enumerable2.next();
         if (done) return count;
         yield fn(e1, e2); // cater for mutable and immutable collections
         count++;
     }
 }
 
-const zipWith = (enumerator1, enumerator2, fn) => iterator(zipWithGen(enumerator1, enumerator2, fn));
-const zip = (enumerator1, enumerator2) => zipWith(enumerator1, enumerator2);
+const zipWith = (enumerable1, enumerable2, fn) => iterator(zipWithGen(enumerable1, enumerable2, fn));
+const zip = (enumerable1, enumerable2) => zipWith(enumerable1, enumerable2);
 
 function* takeGen(n, enumerable) {
     n = isNumber(n) ? n : Number.POSITIVE_INFINITY;
@@ -256,7 +283,7 @@ function* permute(...args) {
 /******************* [ Iterators ] *******************/
 
 /**
- * Babel corner case workaround
+ * Generator <-> Iterator compatibility corner case workaround
  *
  * when a generator (say of 10 values) is partially destructured, it prematurely terminates
  * example:
@@ -329,19 +356,54 @@ function partition(collection, predicate, matchesKey = 'matches', rejectsKey = '
     return result;
 }
 
-const sticky = (n, {when = identity, recharge = true} = {}) => fn => {
+// const sticky = (n, {when = identity, recharge = true} = {}) => fn => {
+//     let count = 0;
+//     let result;
+//     let memory;
+//     return (...args) => {
+//         if (!count) { // not repeating
+//             result = fn(...args);
+//             memory = result;
+//             count = when(result) === memory ? n - 1 : count; // currently when answers with a toggle yes/no, x/y
+//         } else { // repeating
+//             if (recharge) {
+//                 result = fn(...args);
+//                 count = when(result) === result ? n : count; // recharge sticky counter with every new positive hit
+//             }
+//             result = memory;
+//             count--;
+//         }
+//         return result;
+//     }
+// };
+
+
+/**
+ * stickiness decorator for a partitioning function
+ *
+ * Works with partitionBy to have some elements attract n subsequent elements into their same bucket
+ *
+ * @example: [cookie, monster, cookie, cookie, monster, cookie, cookie, cookie, monster, monster]
+ * let n = 1, partitions into: [[cookie, monster], cookie, cookie, [monster, cookie], cookie, cookie, [monster, monster]]
+ * @param n: number of items to repeat result, when we have a hit
+ * @param when: (result, memory, context) -> true means we have a hit, context.n can be manipulated to interactively change stickiness
+ * @param recharge: reboot n every time we have a hit, implies calling fn() for each item, otherwise the function call is skipped while repeating.
+ */
+const sticky = (n, {when = identity, recharge = false} = {}) => fn => {
     let count = 0;
     let result;
     let memory;
     return (...args) => {
         if (!count) { // not repeating
-            result = fn(...args); // the function might want to provide one-off stickiness count, via multiple return/out params. Next recharge would fall back to standard `n` argument
+            result = fn(...args);
             memory = result;
-            count = when(result) === memory ? n - 1 : count; // currently when answers with a toggle yes/no, x/y, ..., would it need to update stickiness
+            const ctx = {n};
+            count = when(result, memory, ctx) ? ctx.n : count; // currently when answers with a toggle yes/no, x/y
         } else { // repeating
             if (recharge) {
                 result = fn(...args);
-                count = when(result) === result ? n : count; // recharge sticky counter with every new positive hit
+                const ctx = {n};
+                count = when(result, memory, ctx) ? ctx.n + 1 : count; // recharge sticky counter with every new positive hit, (n + this once)
             }
             result = memory;
             count--;
@@ -407,7 +469,7 @@ function reduce(reducingFn, initFn, enumerable, resultFn = unreduced) {
 
     for (const value of iter) {
         if (isReduced(result)) {
-            result = result['@@transducer/value']; // TODO: should we rely on the default resultFn, leaving responsibility on the user if overrided?
+            result = result['@@transducer/value']; // TODO: should we rely on the default resultFn, leaving responsibility on the user if overridden?
             break;
         }
         result = reducingFn(result, value);
@@ -486,30 +548,37 @@ const reduceAsync = async (reducingFn, initFn, enumerable) => {
     return result;
 };
 
-// append is a transducer fn
-// append:: fn -> acc -> x -> acc
+/**
+ * append is a transducer fn
+ * append:: fn -> acc -> x -> acc
+ */
 const append = (reducingFn, {factory = identity} = {}) => (acc, input) => factory([...acc, input]);
 
 const appendAsync = (reducingFn, {factory = identity} = {}) =>
     async (acc, input) =>
         factory([...(await acc), input]); // `await acc` is just a precaution, reduceAsync() already await for previous result from the reducing function
 
-// cat is a transducer fn
-// cat:: fn -> acc -> x -> acc
+/**
+ * cat is a transducer fn
+ * cat:: fn -> acc -> x -> acc
+ */
 const cat = (reducingFn, {factory = identity} = {}) => (acc, input) => factory([...acc, ...input]);
 
 const catAsync = (reducingFn, {factory = identity} = {}) =>
     async (acc, input) =>
         factory([...(await acc), ...input]); // `await acc` is just a precaution, reduceAsync() already await for previous result from the reducing function
-
-// mapcat is a transducer fn
-// mapcat:: fn -> acc -> x -> acc
+/**
+ * mapcat is a transducer fn
+ * mapcat:: fn -> acc -> x -> acc
+ */
 const mapcat = fn => compose(mapTransformer(fn), cat);
 
 const mapcatAsync = fn => composeAsync(mapAsyncTransformer(fn), catAsync);
 
-// update is a transducer fn
-// update:: fn -> acc -> x -> acc
+/**
+ * update is a transducer fn
+ * update:: fn -> acc -> x -> acc
+ */
 const update = (reducingFn, {factory = identity} = {}) => (acc, [value, key]) => factory({...acc, [key]: value});
 const mapUpdate = (fn, iterable) => reduce(compose(mapTransformer(fn), update)(/*reducingFn*/), () => ({}), iterable);
 
@@ -639,6 +708,7 @@ module.exports = {
     constant: K,
     yrruc,
     flip,
+    ifElse,
     pipe,
     pipes,
     compose,
@@ -646,6 +716,7 @@ module.exports = {
     composeAsync,
     SymbolIterator,
     SymbolAsyncIterator,
+    isNil,
     isEmptyValue,
     isString,
     isNumber,
@@ -653,6 +724,7 @@ module.exports = {
     isArray,
     isFunction,
     isContainer,
+    isLiteral,
     isIterable,
     isIterator,
     isEnumerable,

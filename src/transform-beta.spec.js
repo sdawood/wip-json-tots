@@ -1,3 +1,4 @@
+const jp = require('jsonpath');
 const {clone, flatten, countBy, keys, values, prop, map, reduce, pipe, toUpper, take, concat, flip} = require('ramda');
 const append = flip(concat); // ramda philosophically doesn't append to a string!!! https://github.com/ramda/ramda/issues/1805
 
@@ -72,7 +73,7 @@ const original = Object.freeze({
 });
 
 describe('transform', () => {
-    describe.only('deref-jsonpath:: meta-0/1 simple interpolation with query modifiers', () => {
+    describe('deref-jsonpath:: meta-0/1 simple interpolation with query modifiers', () => {
         const template = {
             name: '{{title}} [{{description}}] http://items/{{title}}',
             reviews: {
@@ -136,7 +137,7 @@ describe('transform', () => {
         });
     });
 
-    describe.only('deref-jsonpath:: meta-0/1/2 simple interpolation with constrains <- query modifiers with [ NO ] arguments', () => {
+    describe('deref-jsonpath:: meta-0/1/2 simple interpolation with constrains <- query modifiers with [ NO ] arguments', () => {
         const template = {
             name: '{{title}} [{{description}}] http://items/{{title}}',
             reviews: {
@@ -195,7 +196,7 @@ describe('transform', () => {
         });
     });
 
-    describe.only('deref-jsonpath:: meta-0/1/2 simple interpolation with constrains <- query modifiers with arguments', () => {
+    describe('deref-jsonpath:: meta-0/1/2 simple interpolation with constrains <- query modifiers with arguments', () => {
         const template = {
             name: '{{title}} [{{description}}] http://items/{{title}}',
             updatedAt: '{!asDate{updatedAt}}',
@@ -203,7 +204,7 @@ describe('transform', () => {
             reviews: {
                 eula: 'read and agree and let us get on with it',
                 high: '{{productReview.fiveStar[0].comment}}',
-                low: '{{productReview.oneStar[0].comment}}',
+                 low: '{{productReview.oneStar[0].comment}}',
                 disclaimer: 'Ad: {{comment}}'
             },
             safety: '{{["Safety.Warning.On.Root"]}}',
@@ -292,34 +293,35 @@ describe('transform', () => {
         });
     });
 
-    describe        ('simple template array mapping interpolation', () => {
+    describe.only('simple template array for-each mapping interpolation', () => {
         const template = {
             name: '{{title}}',
             reviews: {
-                high: ['prelude', {keyBefore: 'literal value before'}, ['a', 'b', 'c'], '{{productReview.fiveStar.length}}', '{..{productReview.fiveStar}}', {
-                    praise: '{+{["comment","author"]}}'
+                high: [1, 2, 'prelude', {keyBefore: 'literal value before'}, ['a', 'b', 'c'], '{{productReview.fiveStar.length}}', '{.. | ** {productReview.fiveStar}}', {
+                    praise: '{+{["comment","author"]}}',
+                    stars: '{{viewAs}}'
                 }, {keyAfter: 'literal value after'}
                 ],
-                low: ['{..{productReview.oneStar}}', {
-                    criticism: '{{comment}}'
+                low: ['{.. {productReview.oneStar}}', {
+                    criticism: '{{[(@.length - 1)].comment}}'
                 }],
                 disclaimer: 'Ad: {{comment}}'
             },
-            views: ['{..{pictures}}', '[{{view}}]({{images.length}})'],
-            profiles: ['{..{..author}}', 'www.domain.com/user/?name={{$}}']
+            views: ['{.. | ** {pictures}}', '[{{view}}]({{images.length}})'],
+            profiles: ['{.. | ** | + {..author}}', 'www.domain.com/user/?name={{$}}']
         };
 
         const expectedResult = {
             name: original.title,
-            // related: original.relatedItems.map(x => `see also: ${x}`),
             reviews: {
-                high: ['prelude', {keyBefore: 'literal value before'}, ['a', 'b', 'c'], original.productReview.fiveStar.length,
-                    ...original.productReview.fiveStar.map(x => ({praise: [x.comment, x.author]})),
+                high: [1, 2, 'prelude', {keyBefore: 'literal value before'}, ['a', 'b', 'c'], original.productReview.fiveStar.length,
+                    original.productReview.fiveStar.map(x => ({praise: [x.comment, x.author], stars: x.viewAs})),
                     {keyAfter: 'literal value after'}],
-                low: original.productReview.oneStar.map(x => ({criticism: x.comment})),
+                low: [{criticism: original.productReview.oneStar[original.productReview.oneStar.length - 1].comment}],
                 disclaimer: `Ad: ${original.comment}`
             },
-            views: original.pictures.map(x => `[${x.view}](${x.images.length})`)
+            views: [original.pictures.map(x => `[${x.view}](${x.images.length})`)],
+            profiles: [jp.query(original, '$..author').map(x => `www.domain.com/user/?name=${x}`)]
         };
 
         let result;
